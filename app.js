@@ -1,0 +1,798 @@
+/**
+ * Futures Risk & Reward Calculator
+ * Real-time calculation engine, canvas renderer, partial TPs, and local storage history.
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Application State ---
+    const state = {
+        direction: 'long', // 'long' or 'short'
+        capital: 10000,
+        riskPercent: 1.0,
+        entryPrice: 65000,
+        stopLossPrice: 64000,
+        leverage: 10,
+        feePercent: 0.05,
+        customRr: 4.0,
+        partialTps: [
+            { rr: 3, allocPct: 50 },
+            { rr: 6, allocPct: 30 },
+            { rr: 10, allocPct: 20 }
+        ],
+        history: JSON.parse(localStorage.getItem('trading_rr_history') || '[]'),
+        showGrid: true,
+        showLiq: true
+    };
+
+    // --- DOM Elements ---
+    const dom = {
+        // Inputs & Switches
+        dirLong: document.getElementById('dirLong'),
+        dirShort: document.getElementById('dirShort'),
+        capitalInput: document.getElementById('capitalInput'),
+        riskSlider: document.getElementById('riskSlider'),
+        riskPercentInput: document.getElementById('riskPercentInput'),
+        riskAmountDisplay: document.getElementById('riskAmountDisplay'),
+        entryPriceInput: document.getElementById('entryPriceInput'),
+        stopLossInput: document.getElementById('stopLossInput'),
+        stopDistanceDisplay: document.getElementById('stopDistanceDisplay'),
+        leverageSlider: document.getElementById('leverageSlider'),
+        leverageInput: document.getElementById('leverageInput'),
+        leverageValueDisplay: document.getElementById('leverageValueDisplay'),
+        feeToggle: document.getElementById('feeToggle'),
+        feeContent: document.getElementById('feeContent'),
+        feeInput: document.getElementById('feeInput'),
+        resetBtn: document.getElementById('resetBtn'),
+        customRrInput: document.getElementById('customRrInput'),
+
+        // Cards & Displays
+        cardRiskUsdt: document.getElementById('cardRiskUsdt'),
+        cardRiskPct: document.getElementById('cardRiskPct'),
+        cardPosUsdt: document.getElementById('cardPosUsdt'),
+        cardPosCoins: document.getElementById('cardPosCoins'),
+        cardMarginUsdt: document.getElementById('cardMarginUsdt'),
+        cardMarginRatio: document.getElementById('cardMarginRatio'),
+        cardLiqPrice: document.getElementById('cardLiqPrice'),
+        cardLiqDist: document.getElementById('cardLiqDist'),
+        rrCardsContainer: document.getElementById('rrCardsContainer'),
+
+        // Partial TP
+        tpStepsContainer: document.getElementById('tpStepsContainer'),
+        addTpStepBtn: document.getElementById('addTpStepBtn'),
+        tpTotalAllocatedPct: document.getElementById('tpTotalAllocatedPct'),
+        tpWeightedRr: document.getElementById('tpWeightedRr'),
+        tpTotalProfitUsdt: document.getElementById('tpTotalProfitUsdt'),
+        tpTotalGrowthPct: document.getElementById('tpTotalGrowthPct'),
+        allocProgressFill: document.getElementById('allocProgressFill'),
+
+        // Canvas
+        tradeCanvas: document.getElementById('tradeCanvas'),
+        visToggleGrid: document.getElementById('visToggleGrid'),
+        visToggleLiq: document.getElementById('visToggleLiq'),
+
+        // Actions & History
+        copySummaryBtn: document.getElementById('copySummaryBtn'),
+        saveHistoryBtn: document.getElementById('saveHistoryBtn'),
+        clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+        historyListContainer: document.getElementById('historyListContainer'),
+        toast: document.getElementById('toast')
+    };
+
+    // --- Core Calculations ---
+
+    function calculateTrade() {
+        const isLong = state.direction === 'long';
+        const entry = parseFloat(state.entryPrice) || 0;
+        const sl = parseFloat(state.stopLossPrice) || 0;
+        const cap = parseFloat(state.capital) || 0;
+        const riskPct = parseFloat(state.riskPercent) || 0;
+        const lev = parseInt(state.leverage) || 1;
+        const feeRate = (parseFloat(state.feePercent) || 0) / 100;
+
+        // Validation
+        let isInvalid = false;
+        let stopDistanceAbs = 0;
+        let stopDistancePct = 0;
+
+        if (entry <= 0 || sl <= 0 || cap <= 0 || riskPct <= 0) {
+            isInvalid = true;
+        } else if (isLong && sl >= entry) {
+            isInvalid = true; // For Long, SL must be below Entry
+        } else if (!isLong && sl <= entry) {
+            isInvalid = true; // For Short, SL must be above Entry
+        }
+
+        if (isLong) {
+            stopDistanceAbs = entry - sl;
+        } else {
+            stopDistanceAbs = sl - entry;
+        }
+        stopDistancePct = (stopDistanceAbs / entry) * 100;
+
+        // Risk Amount ($)
+        const riskUsdt = cap * (riskPct / 100);
+
+        // Position Value ($) & Coins
+        let posValueUsdt = 0;
+        let posCoins = 0;
+        let marginUsdt = 0;
+
+        if (!isInvalid && stopDistancePct > 0) {
+            posValueUsdt = riskUsdt / (stopDistancePct / 100);
+            posCoins = posValueUsdt / entry;
+            marginUsdt = posValueUsdt / lev;
+        }
+
+        // Liquidation Price (Isolated Margin Approximation)
+        // Maintenance Margin Rate ~ 0.4%
+        const mmr = 0.004;
+        let liqPrice = 0;
+        let liqDistPct = 0;
+
+        if (isLong) {
+            liqPrice = entry * (1 - (1 / lev) + mmr);
+            liqDistPct = ((entry - liqPrice) / entry) * 100;
+        } else {
+            liqPrice = entry * (1 + (1 / lev) - mmr);
+            liqDistPct = ((liqPrice - entry) / entry) * 100;
+        }
+
+        // Calculate targets for presets R:R (1:3, 1:5, 1:6, 1:10 + Custom)
+        const presetRrs = [3, 5, 6, 10, parseFloat(state.customRr) || 4];
+        const rrModes = presetRrs.map(r => {
+            let tpPrice = 0;
+            if (isLong) {
+                tpPrice = entry + (r * stopDistanceAbs);
+            } else {
+                tpPrice = entry - (r * stopDistanceAbs);
+            }
+
+            const grossProfitUsdt = riskUsdt * r;
+            // Fee on Entry + Fee on Exit
+            const entryFeeUsdt = posValueUsdt * feeRate;
+            const exitPosValueUsdt = posCoins * tpPrice;
+            const exitFeeUsdt = exitPosValueUsdt * feeRate;
+            const totalFeeUsdt = entryFeeUsdt + exitFeeUsdt;
+
+            const netProfitUsdt = Math.max(0, grossProfitUsdt - totalFeeUsdt);
+            const accountGrowthPct = (netProfitUsdt / cap) * 100;
+            const roePct = (netProfitUsdt / marginUsdt) * 100;
+
+            return {
+                rr: r,
+                tpPrice,
+                grossProfitUsdt,
+                totalFeeUsdt,
+                netProfitUsdt,
+                accountGrowthPct,
+                roePct
+            };
+        });
+
+        return {
+            isInvalid,
+            isLong,
+            entry,
+            sl,
+            cap,
+            riskPct,
+            riskUsdt,
+            stopDistanceAbs,
+            stopDistancePct,
+            posValueUsdt,
+            posCoins,
+            marginUsdt,
+            lev,
+            liqPrice,
+            liqDistPct,
+            rrModes
+        };
+    }
+
+    // --- Formatters ---
+
+    function formatUsdt(val) {
+        if (isNaN(val)) return '$0.00';
+        return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatPrice(val) {
+        if (isNaN(val) || val <= 0) return '0.00';
+        if (val < 1) return val.toFixed(6);
+        if (val < 10) return val.toFixed(4);
+        return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatCoins(val) {
+        if (isNaN(val) || val <= 0) return '0';
+        if (val < 0.001) return val.toFixed(6);
+        if (val < 1) return val.toFixed(4);
+        if (val < 100) return val.toFixed(2);
+        return val.toFixed(1);
+    }
+
+    // --- UI Update Pipeline ---
+
+    function updateUI() {
+        const trade = calculateTrade();
+
+        // 1. Sidebar Displays
+        dom.riskAmountDisplay.textContent = formatUsdt(trade.riskUsdt);
+        dom.leverageValueDisplay.textContent = `${state.leverage}x`;
+
+        if (trade.isInvalid) {
+            dom.stopDistanceDisplay.textContent = 'Ошибка цены SL!';
+            dom.stopDistanceDisplay.className = 'value-highlight red';
+        } else {
+            const prefix = trade.isLong ? '-' : '+';
+            dom.stopDistanceDisplay.textContent = `${prefix}${trade.stopDistancePct.toFixed(2)}%`;
+            dom.stopDistanceDisplay.className = 'value-highlight red';
+        }
+
+        // 2. Metric Cards
+        dom.cardRiskUsdt.textContent = formatUsdt(trade.riskUsdt);
+        dom.cardRiskPct.textContent = `${trade.riskPct.toFixed(2)}% от депозита`;
+
+        dom.cardPosCoins.textContent = `${formatCoins(trade.posCoins)} монеты`;
+        dom.cardPosUsdt.textContent = `Номинал: ${formatUsdt(trade.posValueUsdt)}`;
+
+        dom.cardMarginUsdt.textContent = formatUsdt(trade.marginUsdt);
+        dom.cardMarginRatio.textContent = `При плече ${trade.lev}x`;
+
+        dom.cardLiqPrice.textContent = `$${formatPrice(trade.liqPrice)}`;
+        dom.cardLiqDist.textContent = `Дистанция: -${trade.liqDistPct.toFixed(2)}%`;
+
+        // 3. Render R:R Preset Cards (Tab 1)
+        renderRrCards(trade);
+
+        // 4. Render Partial TPs (Tab 2)
+        renderPartialTpSummary(trade);
+
+        // 5. Draw Visualizer (Tab 3)
+        drawVisualizerCanvas(trade);
+    }
+
+    function renderRrCards(trade) {
+        dom.rrCardsContainer.innerHTML = '';
+
+        if (trade.isInvalid) {
+            dom.rrCardsContainer.innerHTML = `
+                <div class="empty-state">
+                    Пожалуйста, задайте корректную цену Входа и Стоп-лосса.<br>
+                    Для LONG: Стоп должен быть ниже Входа.<br>
+                    Для SHORT: Стоп должен быть выше Входа.
+                </div>
+            `;
+            return;
+        }
+
+        trade.rrModes.forEach(mode => {
+            const isCustom = mode.rr === parseFloat(state.customRr);
+            const cardEl = document.createElement('div');
+            cardEl.className = `rr-card ${isCustom ? 'custom' : ''}`;
+
+            cardEl.innerHTML = `
+                <div class="rr-card-header">
+                    <span class="rr-badge">1 : ${mode.rr}</span>
+                    <span class="value-highlight green">+${mode.accountGrowthPct.toFixed(2)}%</span>
+                </div>
+                <div class="rr-stat-group">
+                    <div class="stat-row">
+                        <span class="label">Целевая цена (TP):</span>
+                        <span class="val highlight green">$${formatPrice(mode.tpPrice)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="label">Чистая прибыль:</span>
+                        <span class="val green">${formatUsdt(mode.netProfitUsdt)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="label">ROE (на маржу):</span>
+                        <span class="val">+${mode.roePct.toFixed(1)}%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="label">Комиссии:</span>
+                        <span class="val" style="color: var(--text-dim);">${formatUsdt(mode.totalFeeUsdt)}</span>
+                    </div>
+                </div>
+            `;
+            dom.rrCardsContainer.appendChild(cardEl);
+        });
+    }
+
+    // --- Partial TP Builder ---
+
+    function renderPartialTpSteps() {
+        dom.tpStepsContainer.innerHTML = '';
+
+        state.partialTps.forEach((step, idx) => {
+            const row = document.createElement('div');
+            row.className = 'tp-step-item';
+
+            row.innerHTML = `
+                <div class="tp-step-info">
+                    <span class="tp-tag">TP ${idx + 1}</span>
+                    <div class="custom-rr-builder">
+                        <span>R:R 1:</span>
+                        <input type="number" class="tp-rr-input" data-idx="${idx}" value="${step.rr}" step="0.5" min="0.5" max="100">
+                    </div>
+                </div>
+                <div class="tp-controls">
+                    <div class="number-suffix">
+                        <input type="number" class="tp-alloc-input" data-idx="${idx}" value="${step.allocPct}" step="5" min="0" max="100">
+                        <span>%</span>
+                    </div>
+                    ${state.partialTps.length > 1 ? `
+                        <button class="btn-icon danger-text remove-tp-btn" data-idx="${idx}" title="Удалить цель">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            dom.tpStepsContainer.appendChild(row);
+        });
+
+        // Add event listeners for inputs
+        document.querySelectorAll('.tp-rr-input').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                state.partialTps[idx].rr = parseFloat(e.target.value) || 1;
+                updateUI();
+            });
+        });
+
+        document.querySelectorAll('.tp-alloc-input').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                state.partialTps[idx].allocPct = parseFloat(e.target.value) || 0;
+                updateUI();
+            });
+        });
+
+        document.querySelectorAll('.remove-tp-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.idx);
+                state.partialTps.splice(idx, 1);
+                renderPartialTpSteps();
+                updateUI();
+            });
+        });
+    }
+
+    function renderPartialTpSummary(trade) {
+        if (trade.isInvalid) {
+            dom.tpTotalAllocatedPct.textContent = '0%';
+            dom.tpWeightedRr.textContent = '1 : 0.00';
+            dom.tpTotalProfitUsdt.textContent = '$0.00';
+            dom.tpTotalGrowthPct.textContent = '+0.00%';
+            dom.allocProgressFill.style.width = '0%';
+            return;
+        }
+
+        let totalAlloc = 0;
+        let weightedRrSum = 0;
+        let totalProfitUsdt = 0;
+
+        state.partialTps.forEach(step => {
+            const allocRatio = (step.allocPct || 0) / 100;
+            totalAlloc += step.allocPct || 0;
+            weightedRrSum += (step.rr * allocRatio);
+
+            const stepProfit = trade.riskUsdt * step.rr * allocRatio;
+            totalProfitUsdt += stepProfit;
+        });
+
+        const growthPct = (totalProfitUsdt / trade.cap) * 100;
+
+        dom.tpTotalAllocatedPct.textContent = `${totalAlloc.toFixed(0)}%`;
+        dom.tpTotalAllocatedPct.className = totalAlloc === 100 ? 'fw-bold green' : 'fw-bold warning';
+
+        dom.tpWeightedRr.textContent = `1 : ${weightedRrSum.toFixed(2)}`;
+        dom.tpTotalProfitUsdt.textContent = formatUsdt(totalProfitUsdt);
+        dom.tpTotalGrowthPct.textContent = `+${growthPct.toFixed(2)}%`;
+
+        dom.allocProgressFill.style.width = `${Math.min(100, totalAlloc)}%`;
+        dom.allocProgressFill.style.background = totalAlloc === 100 ? 'var(--color-long)' : 'var(--color-warning)';
+    }
+
+    // --- Interactive Canvas Visualizer ---
+
+    function drawVisualizerCanvas(trade) {
+        const canvas = dom.tradeCanvas;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        // Auto-scale HiDPI canvas
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const width = rect.width;
+        const height = rect.height;
+
+        // Clear canvas
+        ctx.fillStyle = '#0A0D14';
+        ctx.fillRect(0, 0, width, height);
+
+        if (trade.isInvalid) {
+            ctx.fillStyle = '#848E9C';
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('Укажите корректные параметры цены для отображения графика', width / 2, height / 2);
+            return;
+        }
+
+        // Determine price bounds for scaling canvas Y axis
+        const isLong = trade.isLong;
+        const entry = trade.entry;
+        const sl = trade.sl;
+        const liq = trade.liqPrice;
+        
+        // Take max TP from custom or preset
+        const maxRr = Math.max(...trade.rrModes.map(m => m.rr));
+        const maxTpPrice = isLong ? entry + (maxRr * trade.stopDistanceAbs) : entry - (maxRr * trade.stopDistanceAbs);
+
+        let minP = Math.min(entry, sl, liq, maxTpPrice);
+        let maxP = Math.max(entry, sl, liq, maxTpPrice);
+
+        // Add 10% padding to Y range
+        const pPadding = (maxP - minP) * 0.12;
+        minP -= pPadding;
+        maxP += pPadding;
+
+        function priceToY(price) {
+            return height - ((price - minP) / (maxP - minP)) * (height - 60) - 30;
+        }
+
+        // Draw Background Grid Lines
+        if (state.showGrid) {
+            ctx.strokeStyle = '#1E222D';
+            ctx.lineWidth = 1;
+            const gridSteps = 6;
+            for (let i = 0; i <= gridSteps; i++) {
+                const y = (height / gridSteps) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        const entryY = priceToY(entry);
+        const slY = priceToY(sl);
+        const liqY = priceToY(liq);
+
+        // Draw Shaded Risk Zone (Red)
+        ctx.fillStyle = 'rgba(255, 59, 105, 0.12)';
+        ctx.fillRect(0, Math.min(entryY, slY), width - 120, Math.abs(slY - entryY));
+
+        // Draw Shaded Profit Zone (Green)
+        const highestTpY = priceToY(maxTpPrice);
+        ctx.fillStyle = 'rgba(0, 192, 118, 0.10)';
+        ctx.fillRect(0, Math.min(entryY, highestTpY), width - 120, Math.abs(highestTpY - entryY));
+
+        // Draw Stop Loss Line (Red)
+        drawLevelLine(ctx, slY, '#FF3B69', `STOP LOSS: $${formatPrice(sl)} (-${trade.stopDistancePct.toFixed(2)}%)`, width);
+
+        // Draw Entry Line (Blue)
+        drawLevelLine(ctx, entryY, '#2962FF', `ENTRY: $${formatPrice(entry)}`, width, false);
+
+        // Draw Liquidation Line (Amber Dotted)
+        if (state.showLiq) {
+            ctx.setLineDash([4, 4]);
+            drawLevelLine(ctx, liqY, '#F0B90B', `LIQUIDATION: $${formatPrice(liq)}`, width);
+            ctx.setLineDash([]);
+        }
+
+        // Draw Preset R:R TP Lines (Green)
+        trade.rrModes.forEach(mode => {
+            const tpY = priceToY(mode.tpPrice);
+            const label = `TP 1:${mode.rr} -> $${formatPrice(mode.tpPrice)} (+$${mode.netProfitUsdt.toFixed(0)})`;
+            drawLevelLine(ctx, tpY, '#00C076', label, width);
+        });
+
+        // Draw Simulated Price Candlestick Icon
+        const candleX = 80;
+        ctx.fillStyle = isLong ? '#00C076' : '#FF3B69';
+        ctx.fillRect(candleX - 1, Math.min(entryY, slY) - 10, 2, Math.abs(slY - entryY) + 20);
+        ctx.fillRect(candleX - 10, Math.min(entryY, slY), 20, Math.abs(slY - entryY));
+    }
+
+    function drawLevelLine(ctx, y, color, label, canvasWidth, isDashed = false) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvasWidth - 140, y);
+        ctx.stroke();
+
+        // Label Badge Background
+        ctx.fillStyle = color;
+        ctx.fillRect(canvasWidth - 135, y - 10, 130, 20);
+
+        // Label Text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 10px "JetBrains Mono"';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, canvasWidth - 130, y);
+        ctx.restore();
+    }
+
+    // --- Copy & History Management ---
+
+    function generateTradeSummaryText() {
+        const trade = calculateTrade();
+        if (trade.isInvalid) return 'Ошибка: недействительные параметры сделки.';
+
+        const dirSymbol = trade.isLong ? '🟢 LONG' : '🔴 SHORT';
+        const pair = document.querySelector('.chip.active')?.textContent || 'Crypto';
+
+        let text = `📊 **ФЬЮЧЕРСНАЯ СДЕЛКА | ${pair}**\n`;
+        text += `═══════════════════════════\n`;
+        text += `Тип: ${dirSymbol} | Плечо: ${trade.lev}x\n`;
+        text += `Депозит: $${trade.cap} | Риск: ${trade.riskPct}% ($${trade.riskUsdt.toFixed(2)})\n`;
+        text += `Вход (Entry): $${formatPrice(trade.entry)}\n`;
+        text += `Стоп-лосс (SL): $${formatPrice(trade.sl)} (-${trade.stopDistancePct.toFixed(2)}%)\n`;
+        text += `Маржа: $${trade.marginUsdt.toFixed(2)} | Объём: ${formatCoins(trade.posCoins)} Coin ($${trade.posValueUsdt.toFixed(2)})\n`;
+        text += `Ликвидация: $${formatPrice(trade.liqPrice)}\n\n`;
+        text += `🎯 **Цели R:R (Тейк-профиты):**\n`;
+
+        trade.rrModes.forEach(m => {
+            text += ` • 1:${m.rr} -> $${formatPrice(m.tpPrice)} | Профит: +$${m.netProfitUsdt.toFixed(2)} (+${m.accountGrowthPct.toFixed(2)}% dep)\n`;
+        });
+
+        return text;
+    }
+
+    function saveCurrentTradeToHistory() {
+        const trade = calculateTrade();
+        if (trade.isInvalid) {
+            showToast('Нельзя сохранить некорректную сделку!');
+            return;
+        }
+
+        const item = {
+            id: Date.now(),
+            timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            direction: state.direction,
+            pair: document.querySelector('.chip.active')?.textContent || 'CUSTOM',
+            entry: trade.entry,
+            sl: trade.sl,
+            riskUsdt: trade.riskUsdt,
+            posUsdt: trade.posValueUsdt,
+            lev: trade.lev
+        };
+
+        state.history.unshift(item);
+        if (state.history.length > 20) state.history.pop();
+
+        localStorage.setItem('trading_rr_history', JSON.stringify(state.history));
+        renderHistory();
+        showToast('Сделка сохранена в историю!');
+    }
+
+    function renderHistory() {
+        dom.historyListContainer.innerHTML = '';
+
+        if (state.history.length === 0) {
+            dom.historyListContainer.innerHTML = `<div class="empty-state">История пуста. Сохраняйте расчёты для анализа.</div>`;
+            return;
+        }
+
+        state.history.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'history-item';
+            const isLong = item.direction === 'long';
+
+            card.innerHTML = `
+                <div class="history-item-header">
+                    <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${item.pair} (${item.lev}x)</span>
+                    <span class="history-time">${item.timestamp}</span>
+                </div>
+                <div>Entry: <b>$${formatPrice(item.entry)}</b> | SL: <b>$${formatPrice(item.sl)}</b></div>
+                <div style="color: var(--text-dim);">Риск: $${item.riskUsdt.toFixed(2)} | Позиция: $${item.posUsdt.toFixed(0)}</div>
+            `;
+            dom.historyListContainer.appendChild(card);
+        });
+    }
+
+    function showToast(msg) {
+        dom.toast.textContent = msg;
+        dom.toast.classList.remove('hidden');
+        setTimeout(() => {
+            dom.toast.classList.add('hidden');
+        }, 2500);
+    }
+
+    // --- Event Listeners Setup ---
+
+    function setupEventListeners() {
+        // Direction buttons
+        dom.dirLong.addEventListener('click', () => {
+            state.direction = 'long';
+            dom.dirLong.classList.add('active');
+            dom.dirShort.classList.remove('active');
+            updateUI();
+        });
+
+        dom.dirShort.addEventListener('click', () => {
+            state.direction = 'short';
+            dom.dirShort.classList.add('active');
+            dom.dirLong.classList.remove('active');
+            updateUI();
+        });
+
+        // Numeric inputs
+        dom.capitalInput.addEventListener('input', (e) => {
+            state.capital = parseFloat(e.target.value) || 0;
+            updateUI();
+        });
+
+        dom.entryPriceInput.addEventListener('input', (e) => {
+            state.entryPrice = parseFloat(e.target.value) || 0;
+            updateUI();
+        });
+
+        dom.stopLossInput.addEventListener('input', (e) => {
+            state.stopLossPrice = parseFloat(e.target.value) || 0;
+            updateUI();
+        });
+
+        // Risk Slider & Input sync
+        dom.riskSlider.addEventListener('input', (e) => {
+            state.riskPercent = parseFloat(e.target.value);
+            dom.riskPercentInput.value = state.riskPercent;
+            updateUI();
+        });
+
+        dom.riskPercentInput.addEventListener('input', (e) => {
+            state.riskPercent = parseFloat(e.target.value) || 0;
+            dom.riskSlider.value = state.riskPercent;
+            updateUI();
+        });
+
+        // Risk Presets
+        document.querySelectorAll('.risk-preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.risk-preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.riskPercent = parseFloat(btn.dataset.risk);
+                dom.riskSlider.value = state.riskPercent;
+                dom.riskPercentInput.value = state.riskPercent;
+                updateUI();
+            });
+        });
+
+        // Leverage Slider & Input sync
+        dom.leverageSlider.addEventListener('input', (e) => {
+            state.leverage = parseInt(e.target.value);
+            dom.leverageInput.value = state.leverage;
+            updateUI();
+        });
+
+        dom.leverageInput.addEventListener('input', (e) => {
+            state.leverage = parseInt(e.target.value) || 1;
+            dom.leverageSlider.value = state.leverage;
+            updateUI();
+        });
+
+        // Custom R:R Input
+        dom.customRrInput.addEventListener('input', (e) => {
+            state.customRr = parseFloat(e.target.value) || 4;
+            updateUI();
+        });
+
+        // Collapsible Fee
+        dom.feeToggle.addEventListener('click', () => {
+            dom.feeContent.classList.toggle('open');
+        });
+
+        dom.feeInput.addEventListener('input', (e) => {
+            state.feePercent = parseFloat(e.target.value) || 0;
+            updateUI();
+        });
+
+        // Pair Preset Chips
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+
+                if (chip.dataset.price) {
+                    state.entryPrice = parseFloat(chip.dataset.price);
+                    state.stopLossPrice = parseFloat(chip.dataset.sl);
+                    dom.entryPriceInput.value = state.entryPrice;
+                    dom.stopLossInput.value = state.stopLossPrice;
+                    updateUI();
+                }
+            });
+        });
+
+        // Tab Switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+
+                if (btn.dataset.tab === 'tabVisualizer') {
+                    drawVisualizerCanvas(calculateTrade());
+                }
+            });
+        });
+
+        // Canvas Toggles
+        dom.visToggleGrid.addEventListener('click', () => {
+            state.showGrid = !state.showGrid;
+            dom.visToggleGrid.classList.toggle('active', state.showGrid);
+            drawVisualizerCanvas(calculateTrade());
+        });
+
+        dom.visToggleLiq.addEventListener('click', () => {
+            state.showLiq = !state.showLiq;
+            dom.visToggleLiq.classList.toggle('active', state.showLiq);
+            drawVisualizerCanvas(calculateTrade());
+        });
+
+        // Add Partial TP step
+        dom.addTpStepBtn.addEventListener('click', () => {
+            const nextRr = (state.partialTps.length + 1) * 3;
+            state.partialTps.push({ rr: nextRr, allocPct: 20 });
+            renderPartialTpSteps();
+            updateUI();
+        });
+
+        // Copy & Save
+        dom.copySummaryBtn.addEventListener('click', () => {
+            const text = generateTradeSummaryText();
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Сводка скопирована в буфер обмена!');
+            });
+        });
+
+        dom.saveHistoryBtn.addEventListener('click', () => {
+            saveCurrentTradeToHistory();
+        });
+
+        dom.clearHistoryBtn.addEventListener('click', () => {
+            state.history = [];
+            localStorage.removeItem('trading_rr_history');
+            renderHistory();
+            showToast('История очищена');
+        });
+
+        dom.resetBtn.addEventListener('click', () => {
+            state.capital = 10000;
+            state.riskPercent = 1.0;
+            state.entryPrice = 65000;
+            state.stopLossPrice = 64000;
+            state.leverage = 10;
+            dom.capitalInput.value = 10000;
+            dom.riskPercentInput.value = 1.0;
+            dom.riskSlider.value = 1.0;
+            dom.entryPriceInput.value = 65000;
+            dom.stopLossInput.value = 64000;
+            dom.leverageInput.value = 10;
+            dom.leverageSlider.value = 10;
+            updateUI();
+        });
+
+        window.addEventListener('resize', () => {
+            drawVisualizerCanvas(calculateTrade());
+        });
+    }
+
+    // --- Initialize ---
+    renderPartialTpSteps();
+    renderHistory();
+    setupEventListeners();
+    updateUI();
+});

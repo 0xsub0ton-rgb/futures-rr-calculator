@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futures Risk & Reward Calculator | R:R 1:3, 1:5, 1:6, 1:10</title>
+    <meta name="description" content="Профессиональный фьючерсный калькулятор риск-менеджмента, расчета размера позиции, плеча, ликвидации и R:R соотшений.">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Bar -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 17L9 11L13 15L21 7" stroke="#00C076" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M17 7H21V11" stroke="#00C076" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>Futures Risk:Reward Calc</h1>
+                    <span class="badge-pro">PRO TRADING TOOL</span>
+                </div>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="pair-selector">
+                <span class="selector-label">Пресеты пар:</span>
+                <button class="chip active" data-pair="BTCUSDT" data-price="65000" data-sl="64000">BTC/USDT</button>
+                <button class="chip" data-pair="ETHUSDT" data-price="3400" data-sl="3320">ETH/USDT</button>
+                <button class="chip" data-pair="SOLUSDT" data-price="150" data-sl="144">SOL/USDT</button>
+                <button class="chip" data-pair="CUSTOM" data-price="" data-sl="">Свой тикер</button>
+            </div>
+        </header>
+
+        <!-- Main Layout Split -->
+        <div class="main-content">
+            <!-- Sidebar: Parameters Input -->
+            <aside class="sidebar-panel">
+                <div class="panel-header">
+                    <h2>Параметры Сделки</h2>
+                    <button id="resetBtn" class="btn-icon" title="Сбросить всё">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Position Direction Switcher -->
+                <div class="input-group">
+                    <label>Тип позиции</label>
+                    <div class="direction-switch">
+                        <button id="dirLong" class="dir-btn long active">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 19V5M5 12l7-7 7 7"/>
+                            </svg>
+                            LONG (Покупка)
+                        </button>
+                        <button id="dirShort" class="dir-btn short">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 5v14M5 12l7 7 7-7"/>
+                            </svg>
+                            SHORT (Продажа)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Capital / Balance -->
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="capitalInput">Торговый капитал</label>
+                        <span class="unit">USDT</span>
+                    </div>
+                    <div class="input-wrapper">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" id="capitalInput" value="10000" step="100" min="1" placeholder="10000">
+                    </div>
+                </div>
+
+                <!-- Risk Percentage -->
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="riskPercentInput">Риск на сделку</label>
+                        <span id="riskAmountDisplay" class="value-highlight red">$100.00</span>
+                    </div>
+                    <div class="slider-input-combo">
+                        <input type="range" id="riskSlider" min="0.1" max="10" step="0.1" value="1.0">
+                        <div class="number-suffix">
+                            <input type="number" id="riskPercentInput" value="1.0" step="0.1" min="0.01" max="100">
+                            <span>%</span>
+                        </div>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="risk-preset-btn" data-risk="0.5">0.5%</button>
+                        <button class="risk-preset-btn active" data-risk="1.0">1.0%</button>
+                        <button class="risk-preset-btn" data-risk="2.0">2.0%</button>
+                        <button class="risk-preset-btn" data-risk="3.0">3.0%</button>
+                    </div>
+                </div>
+
+                <!-- Entry Price -->
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="entryPriceInput">Цена входа (Entry)</label>
+                        <span class="unit">USDT</span>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="number" id="entryPriceInput" value="65000" step="any" min="0.000001" placeholder="65000">
+                    </div>
+                </div>
+
+                <!-- Stop Loss Price -->
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="stopLossInput">Стоп-лосс (Stop Loss)</label>
+                        <span id="stopDistanceDisplay" class="value-highlight red">-1.54%</span>
+                    </div>
+                    <div class="input-wrapper danger-focus">
+                        <input type="number" id="stopLossInput" value="64000" step="any" min="0.000001" placeholder="64000">
+                    </div>
+                </div>
+
+                <!-- Leverage & Margin Mode -->
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="leverageInput">Кредитное плечо</label>
+                        <span id="leverageValueDisplay" class="value-highlight accent">10x</span>
+                    </div>
+                    <div class="slider-input-combo">
+                        <input type="range" id="leverageSlider" min="1" max="125" step="1" value="10">
+                        <div class="number-suffix">
+                            <input type="number" id="leverageInput" value="10" min="1" max="125">
+                            <span>x</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exchange Fee Settings -->
+                <div class="input-group collapsible">
+                    <button type="button" class="collapsible-toggle" id="feeToggle">
+                        <span>Параметры комиссий (Taker/Maker)</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </button>
+                    <div class="collapsible-content" id="feeContent">
+                        <div class="label-row">
+                            <label for="feeInput">Комиссия за сделку (вход + выход)</label>
+                            <span class="unit">%</span>
+                        </div>
+                        <input type="number" id="feeInput" value="0.05" step="0.01" min="0">
+                        <span class="help-text">По умолчанию 0.05% (средняя ставка фьючерсов Bybit/Binance)</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Dashboard Content Area -->
+            <main class="dashboard-area">
+                
+                <!-- Quick Metric Cards Overview -->
+                <section class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon risk-bg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                        <div class="metric-data">
+                            <span class="metric-title">Сумма Риска (SL)</span>
+                            <span class="metric-value red" id="cardRiskUsdt">$100.00</span>
+                            <span class="metric-sub" id="cardRiskPct">1.00% от депозита</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon pos-bg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                        </div>
+                        <div class="metric-data">
+                            <span class="metric-title">Размер позиции в монетах (Qty)</span>
+                            <span class="metric-value accent" id="cardPosCoins">87.3 SFP</span>
+                            <span class="metric-sub" id="cardPosUsdt">Номинал: $19.68 USDT</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon margin-bg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v12M16 10H8"/>
+                            </svg>
+                        </div>
+                        <div class="metric-data">
+                            <span class="metric-title">Маржа (Свои деньги)</span>
+                            <span class="metric-value accent" id="cardMarginUsdt">$650.00</span>
+                            <span class="metric-sub" id="cardMarginRatio">При плече 10x</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon liq-bg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                            </svg>
+                        </div>
+                        <div class="metric-data">
+                            <span class="metric-title">Цена Ликвидации</span>
+                            <span class="metric-value warning" id="cardLiqPrice">$58,760.00</span>
+                            <span class="metric-sub" id="cardLiqDist">Дистанция: -9.60%</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tabs Navigation -->
+                <nav class="view-tabs">
+                    <button class="tab-btn active" data-tab="tabRrModes">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"/>
+                            <rect x="14" y="3" width="7" height="7"/>
+                            <rect x="14" y="14" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                        Сравнение Режимов R:R (1:3, 1:5, 1:6, 1:10)
+                    </button>
+                    <button class="tab-btn" data-tab="tabPartialTp">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        Мульти-Тейк Профиты (Split TPs)
+                    </button>
+                    <button class="tab-btn" data-tab="tabVisualizer">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18"/>
+                            <path d="M18 17V9"/>
+                            <path d="M13 17V5"/>
+                            <path d="M8 17v-3"/>
+                        </svg>
+                        График Сделки & Зоны
+                    </button>
+                </nav>
+
+                <!-- TAB 1: R:R Target Modes -->
+                <div id="tabRrModes" class="tab-pane active">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div>
+                                <h3>Целевые уровни Risk : Reward</h3>
+                                <p class="section-subtitle">Сравнение чистой прибыли при достижении каждого соотношения R:R</p>
+                            </div>
+                            <div class="custom-rr-builder">
+                                <label for="customRrInput">Кастомный R:R 1:</label>
+                                <input type="number" id="customRrInput" value="4.0" step="0.1" min="0.5" max="100">
+                            </div>
+                        </div>
+
+                        <div class="rr-cards-grid" id="rrCardsContainer">
+                            <!-- Injected dynamically via JS: 1:3, 1:5, 1:6, 1:10, Custom -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Partial Take Profit Calculator -->
+                <div id="tabPartialTp" class="tab-pane">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div>
+                                <h3>Частичный фиксация прибыли (Partial TPs)</h3>
+                                <p class="section-subtitle">Разбей каскад тейк-профитов на несколько целей для снижения риска</p>
+                            </div>
+                            <button id="addTpStepBtn" class="btn-secondary">
+                                + Добавить Тейк
+                            </button>
+                        </div>
+
+                        <div class="partial-tp-layout">
+                            <div class="tp-steps-list" id="tpStepsContainer">
+                                <!-- Partial TP steps generated via JS -->
+                            </div>
+
+                            <div class="partial-tp-summary card-glass">
+                                <h4>Итоговая сводка каскада</h4>
+                                <div class="summary-line">
+                                    <span>Распределено объёма:</span>
+                                    <span id="tpTotalAllocatedPct" class="fw-bold">100%</span>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Средневзвешенный R:R:</span>
+                                    <span id="tpWeightedRr" class="fw-bold green">1 : 4.80</span>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Общая чистая прибыль:</span>
+                                    <span id="tpTotalProfitUsdt" class="fw-bold green">$480.00</span>
+                                </div>
+                                <div class="summary-line">
+                                    <span>Прирост к депозиту:</span>
+                                    <span id="tpTotalGrowthPct" class="fw-bold green">+4.80%</span>
+                                </div>
+                                <div class="alloc-progress-bar">
+                                    <div id="allocProgressFill" class="alloc-progress-fill" style="width: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Interactive Canvas Visualizer -->
+                <div id="tabVisualizer" class="tab-pane">
+                    <div class="section-card visualizer-card">
+                        <div class="section-header">
+                            <div>
+                                <h3>Визуализация Уровней и Зон</h3>
+                                <p class="section-subtitle">Интерактивный график сделки с отображением расстояний, StopLoss, Тейков и Ликвидации</p>
+                            </div>
+                            <div class="vis-controls">
+                                <button class="btn-small active" id="visToggleGrid">Сетка</button>
+                                <button class="btn-small" id="visToggleLiq">Ликвидация</button>
+                            </div>
+                        </div>
+
+                        <div class="canvas-wrapper">
+                            <canvas id="tradeCanvas" width="900" height="480"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Action Bar & History -->
+                <section class="action-footer">
+                    <div class="copy-box">
+                        <button id="copySummaryBtn" class="btn-primary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Скопировать Сводку в Буфер
+                        </button>
+                        <button id="saveHistoryBtn" class="btn-secondary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            Сохранить Сделку
+                        </button>
+                    </div>
+                </section>
+
+                <!-- History Drawer / Section -->
+                <section class="section-card history-section">
+                    <div class="section-header">
+                        <h3>История Сохранённых Расчётов</h3>
+                        <button id="clearHistoryBtn" class="btn-small danger-text">Очистить историю</button>
+                    </div>
+                    <div id="historyListContainer" class="history-grid">
+                        <div class="empty-state">История пуста. Сохраняйте расчёты для дальнейшего анализа.</div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">Сводка скопирована в буфер обмена!</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
