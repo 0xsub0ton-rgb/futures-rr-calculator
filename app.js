@@ -233,8 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.cardRiskUsdt.textContent = formatUsdt(trade.riskUsdt);
         dom.cardRiskPct.textContent = `${trade.riskPct.toFixed(2)}% от депозита`;
 
-        dom.cardPosCoins.textContent = `${formatCoins(trade.posCoins)} монеты`;
-        dom.cardPosUsdt.textContent = `Номинал: ${formatUsdt(trade.posValueUsdt)}`;
+        dom.cardPosUsdt.textContent = formatUsdt(trade.posValueUsdt);
+        dom.cardPosCoins.textContent = `В монетах: ${formatCoins(trade.posCoins)} Qty`;
 
         dom.cardMarginUsdt.textContent = formatUsdt(trade.marginUsdt);
         dom.cardMarginRatio.textContent = `При плече ${trade.lev}x`;
