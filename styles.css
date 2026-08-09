@@ -440,9 +440,132 @@ body {
     display: flex;
 }
 
-.help-text {
+/* Mode Switcher */
+.mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: var(--bg-dark);
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.mode-btn {
+    padding: 7px 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.mode-btn.active {
+    background: var(--color-accent);
+    color: #fff;
+    box-shadow: 0 2px 8px var(--color-accent-glow);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Multi Orders DCA List */
+.multi-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.multi-order-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.order-badge {
+    font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--text-dim);
+    font-weight: 700;
+    color: var(--color-accent);
+    background: rgba(41, 98, 255, 0.12);
+    padding: 3px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.multi-order-row .input-wrapper {
+    flex: 1;
+}
+
+.multi-order-row .number-suffix {
+    width: 75px;
+}
+
+.btn-small-dashed {
+    background: transparent;
+    border: 1px dashed var(--border-light);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: center;
+}
+
+.btn-small-dashed:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: rgba(41, 98, 255, 0.05);
+}
+
+.multi-alloc-warning {
+    font-size: 11px;
+    color: var(--color-warning);
+    display: none;
+    font-weight: 600;
+}
+
+.multi-alloc-warning.visible {
+    display: block;
+}
+
+/* DCA Table */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.dca-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+}
+
+.dca-table th, .dca-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+}
+
+.dca-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    background: var(--bg-dark);
+}
+
+.dca-table tr:hover td {
+    background: var(--bg-card);
 }
 
 /* Dashboard Area */

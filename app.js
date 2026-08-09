@@ -1,11 +1,12 @@
 /**
  * Futures Risk & Reward Calculator
- * Real-time calculation engine, canvas renderer, partial TPs, and local storage history.
+ * Real-time calculation engine, canvas renderer, partial TPs, multi-orders DCA grid, and local storage history.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
     const state = {
+        entryMode: 'single', // 'single' or 'multi'
         direction: 'long', // 'long' or 'short'
         capital: 10000,
         riskPercent: 1.0,
@@ -14,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
         leverage: 10,
         feePercent: 0.05,
         customRr: 4.0,
+        multiOrders: [
+            { price: 65000, weightPct: 50 },
+            { price: 63000, weightPct: 50 }
+        ],
         partialTps: [
             { rr: 3, allocPct: 50 },
             { rr: 6, allocPct: 30 },
@@ -26,7 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DOM Elements ---
     const dom = {
-        // Inputs & Switches
+        // Mode & Switches
+        entryModeSingle: document.getElementById('entryModeSingle'),
+        entryModeMulti: document.getElementById('entryModeMulti'),
+        singleEntryGroup: document.getElementById('singleEntryGroup'),
+        multiEntryGroup: document.getElementById('multiEntryGroup'),
+        multiOrdersList: document.getElementById('multiOrdersList'),
+        addMultiOrderBtn: document.getElementById('addMultiOrderBtn'),
+        multiAllocWarning: document.getElementById('multiAllocWarning'),
+        multiAvgPriceDisplay: document.getElementById('multiAvgPriceDisplay'),
+
+        // Tab & DCA table
+        tabBtnMultiOrders: document.getElementById('tabBtnMultiOrders'),
+        tabMultiOrders: document.getElementById('tabMultiOrders'),
+        multiAvgEntrySummary: document.getElementById('multiAvgEntrySummary'),
+        dcaBreakdownTbody: document.getElementById('dcaBreakdownTbody'),
+
+        // Core Inputs
         dirLong: document.getElementById('dirLong'),
         dirShort: document.getElementById('dirShort'),
         capitalInput: document.getElementById('capitalInput'),
@@ -78,41 +99,102 @@ document.addEventListener('DOMContentLoaded', () => {
         toast: document.getElementById('toast')
     };
 
-    // --- Core Calculations ---
+    // --- Core Calculations Engine ---
 
     function calculateTrade() {
         const isLong = state.direction === 'long';
-        const entry = parseFloat(state.entryPrice) || 0;
+        const isMulti = state.entryMode === 'multi';
         const sl = parseFloat(state.stopLossPrice) || 0;
         const cap = parseFloat(state.capital) || 0;
         const riskPct = parseFloat(state.riskPercent) || 0;
         const lev = parseInt(state.leverage) || 1;
         const feeRate = (parseFloat(state.feePercent) || 0) / 100;
+        const riskUsdt = cap * (riskPct / 100);
 
-        // Validation
+        let entry = parseFloat(state.entryPrice) || 0;
         let isInvalid = false;
+        let multiBreakdown = [];
+        let totalAllocWeight = 100;
+
+        if (isMulti) {
+            // Multi-order DCA calculations
+            totalAllocWeight = state.multiOrders.reduce((sum, o) => sum + (o.weightPct || 0), 0);
+            
+            // Check order prices validity
+            state.multiOrders.forEach(o => {
+                const p = parseFloat(o.price) || 0;
+                if (p <= 0 || sl <= 0) isInvalid = true;
+                else if (isLong && sl >= p) isInvalid = true;
+                else if (!isLong && sl <= p) isInvalid = true;
+            });
+
+            if (!isInvalid && state.multiOrders.length > 0 && cap > 0 && riskPct > 0) {
+                // Formula: Total Loss at SL = sum( Q_i * |P_i - SL| ) = RiskUsdt
+                // Q_i = (w_i * V_total) / P_i
+                // Loss_i = (w_i * V_total) * (|P_i - SL| / P_i)
+                // V_total = RiskUsdt / sum( w_i * (|P_i - SL| / P_i) )
+                let sumWeightedDistRatio = 0;
+                const activeOrders = state.multiOrders.filter(o => o.price > 0 && o.weightPct > 0);
+
+                activeOrders.forEach(o => {
+                    const wRatio = (o.weightPct / (totalAllocWeight || 100));
+                    const distRatio = Math.abs(o.price - sl) / o.price;
+                    sumWeightedDistRatio += wRatio * distRatio;
+                });
+
+                if (sumWeightedDistRatio > 0) {
+                    const posValueUsdt = riskUsdt / sumWeightedDistRatio;
+                    let totalCoins = 0;
+
+                    activeOrders.forEach((o, idx) => {
+                        const wRatio = (o.weightPct / (totalAllocWeight || 100));
+                        const orderUsdt = posValueUsdt * wRatio;
+                        const orderCoins = orderUsdt / o.price;
+                        const orderMargin = orderUsdt / lev;
+                        const orderDistPct = (Math.abs(o.price - sl) / o.price) * 100;
+
+                        totalCoins += orderCoins;
+
+                        multiBreakdown.push({
+                            index: idx + 1,
+                            price: o.price,
+                            weightPct: o.weightPct,
+                            orderUsdt,
+                            orderCoins,
+                            orderMargin,
+                            orderDistPct
+                        });
+                    });
+
+                    // Weighted average entry price
+                    entry = posValueUsdt / (totalCoins || 1);
+                } else {
+                    isInvalid = true;
+                }
+            }
+        } else {
+            // Single Order mode validation
+            if (entry <= 0 || sl <= 0 || cap <= 0 || riskPct <= 0) {
+                isInvalid = true;
+            } else if (isLong && sl >= entry) {
+                isInvalid = true;
+            } else if (!isLong && sl <= entry) {
+                isInvalid = true;
+            }
+        }
+
+        // Distance calculations using effective average entry
         let stopDistanceAbs = 0;
         let stopDistancePct = 0;
-
-        if (entry <= 0 || sl <= 0 || cap <= 0 || riskPct <= 0) {
-            isInvalid = true;
-        } else if (isLong && sl >= entry) {
-            isInvalid = true; // For Long, SL must be below Entry
-        } else if (!isLong && sl <= entry) {
-            isInvalid = true; // For Short, SL must be above Entry
-        }
 
         if (isLong) {
             stopDistanceAbs = entry - sl;
         } else {
             stopDistanceAbs = sl - entry;
         }
-        stopDistancePct = (stopDistanceAbs / entry) * 100;
+        stopDistancePct = (stopDistanceAbs / (entry || 1)) * 100;
 
-        // Risk Amount ($)
-        const riskUsdt = cap * (riskPct / 100);
-
-        // Position Value ($) & Coins
+        // Position totals
         let posValueUsdt = 0;
         let posCoins = 0;
         let marginUsdt = 0;
@@ -124,20 +206,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Liquidation Price (Isolated Margin Approximation)
-        // Maintenance Margin Rate ~ 0.4%
         const mmr = 0.004;
         let liqPrice = 0;
         let liqDistPct = 0;
 
         if (isLong) {
             liqPrice = entry * (1 - (1 / lev) + mmr);
-            liqDistPct = ((entry - liqPrice) / entry) * 100;
+            liqDistPct = ((entry - liqPrice) / (entry || 1)) * 100;
         } else {
             liqPrice = entry * (1 + (1 / lev) - mmr);
-            liqDistPct = ((liqPrice - entry) / entry) * 100;
+            liqDistPct = ((liqPrice - entry) / (entry || 1)) * 100;
         }
 
-        // Calculate targets for presets R:R (1:3, 1:5, 1:6, 1:10 + Custom)
+        // Calculate R:R preset targets
         const presetRrs = [3, 5, 6, 10, parseFloat(state.customRr) || 4];
         const rrModes = presetRrs.map(r => {
             let tpPrice = 0;
@@ -148,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const grossProfitUsdt = riskUsdt * r;
-            // Fee on Entry + Fee on Exit
             const entryFeeUsdt = posValueUsdt * feeRate;
             const exitPosValueUsdt = posCoins * tpPrice;
             const exitFeeUsdt = exitPosValueUsdt * feeRate;
@@ -156,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const netProfitUsdt = Math.max(0, grossProfitUsdt - totalFeeUsdt);
             const accountGrowthPct = (netProfitUsdt / cap) * 100;
-            const roePct = (netProfitUsdt / marginUsdt) * 100;
+            const roePct = (netProfitUsdt / (marginUsdt || 1)) * 100;
 
             return {
                 rr: r,
@@ -172,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             isInvalid,
             isLong,
+            isMulti,
             entry,
             sl,
             cap,
@@ -185,7 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
             lev,
             liqPrice,
             liqDistPct,
-            rrModes
+            rrModes,
+            multiBreakdown,
+            totalAllocWeight
         };
     }
 
@@ -220,6 +303,16 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.riskAmountDisplay.textContent = formatUsdt(trade.riskUsdt);
         dom.leverageValueDisplay.textContent = `${state.leverage}x`;
 
+        if (trade.isMulti) {
+            dom.multiAvgPriceDisplay.textContent = `Ср. цена: $${formatPrice(trade.entry)}`;
+            if (trade.totalAllocWeight !== 100) {
+                dom.multiAllocWarning.classList.add('visible');
+                dom.multiAllocWarning.textContent = `Сумма долей: ${trade.totalAllocWeight}% (желательно 100%)`;
+            } else {
+                dom.multiAllocWarning.classList.remove('visible');
+            }
+        }
+
         if (trade.isInvalid) {
             dom.stopDistanceDisplay.textContent = 'Ошибка цены SL!';
             dom.stopDistanceDisplay.className = 'value-highlight red';
@@ -242,13 +335,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.cardLiqPrice.textContent = `$${formatPrice(trade.liqPrice)}`;
         dom.cardLiqDist.textContent = `Дистанция: -${trade.liqDistPct.toFixed(2)}%`;
 
-        // 3. Render R:R Preset Cards (Tab 1)
+        // 3. Tab Visibility & Renderers
+        if (trade.isMulti) {
+            dom.tabBtnMultiOrders.classList.remove('hidden');
+        } else {
+            dom.tabBtnMultiOrders.classList.add('hidden');
+            if (dom.tabMultiOrders.classList.contains('active')) {
+                // Fallback tab if multi-orders tab was active
+                dom.tabBtnMultiOrders.classList.remove('active');
+                document.querySelector('.tab-btn[data-tab="tabRrModes"]').click();
+            }
+        }
+
         renderRrCards(trade);
-
-        // 4. Render Partial TPs (Tab 2)
+        renderDcaBreakdownTable(trade);
         renderPartialTpSummary(trade);
-
-        // 5. Draw Visualizer (Tab 3)
         drawVisualizerCanvas(trade);
     }
 
@@ -299,6 +400,87 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderDcaBreakdownTable(trade) {
+        dom.dcaBreakdownTbody.innerHTML = '';
+        dom.multiAvgEntrySummary.textContent = `Средняя цена входа: $${formatPrice(trade.entry)}`;
+
+        if (!trade.isMulti || trade.isInvalid || trade.multiBreakdown.length === 0) {
+            dom.dcaBreakdownTbody.innerHTML = `<tr><td colspan="7" class="empty-state">Режим мульти-ордеров не активен или параметры некорректны.</td></tr>`;
+            return;
+        }
+
+        trade.multiBreakdown.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>Ордер #${row.index}</b></td>
+                <td class="accent">$${formatPrice(row.price)}</td>
+                <td>${row.weightPct}%</td>
+                <td class="green">${formatUsdt(row.orderUsdt)}</td>
+                <td>${formatCoins(row.orderCoins)} Qty</td>
+                <td>${formatUsdt(row.orderMargin)}</td>
+                <td class="red">-${row.orderDistPct.toFixed(2)}%</td>
+            `;
+            dom.dcaBreakdownTbody.appendChild(tr);
+        });
+    }
+
+    // --- Multi Orders Dynamic List Builder ---
+
+    function renderMultiOrdersList() {
+        dom.multiOrdersList.innerHTML = '';
+
+        state.multiOrders.forEach((order, idx) => {
+            const row = document.createElement('div');
+            row.className = 'multi-order-row';
+
+            row.innerHTML = `
+                <span class="order-badge">#${idx + 1}</span>
+                <div class="input-wrapper">
+                    <input type="number" class="multi-price-input" data-idx="${idx}" value="${order.price}" step="any" placeholder="Цена">
+                </div>
+                <div class="number-suffix">
+                    <input type="number" class="multi-weight-input" data-idx="${idx}" value="${order.weightPct}" step="5" min="1" max="100">
+                    <span>%</span>
+                </div>
+                ${state.multiOrders.length > 1 ? `
+                    <button type="button" class="btn-icon danger-text remove-multi-order-btn" data-idx="${idx}" title="Удалить ордер">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                ` : ''}
+            `;
+            dom.multiOrdersList.appendChild(row);
+        });
+
+        // Add input handlers
+        document.querySelectorAll('.multi-price-input').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                state.multiOrders[idx].price = parseFloat(e.target.value) || 0;
+                updateUI();
+            });
+        });
+
+        document.querySelectorAll('.multi-weight-input').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                state.multiOrders[idx].weightPct = parseFloat(e.target.value) || 0;
+                updateUI();
+            });
+        });
+
+        document.querySelectorAll('.remove-multi-order-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.idx);
+                state.multiOrders.splice(idx, 1);
+                renderMultiOrdersList();
+                updateUI();
+            });
+        });
+    }
+
     // --- Partial TP Builder ---
 
     function renderPartialTpSteps() {
@@ -334,7 +516,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.tpStepsContainer.appendChild(row);
         });
 
-        // Add event listeners for inputs
         document.querySelectorAll('.tp-rr-input').forEach(inp => {
             inp.addEventListener('input', (e) => {
                 const idx = parseInt(e.target.dataset.idx);
@@ -404,7 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
 
-        // Auto-scale HiDPI canvas
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
@@ -413,7 +593,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = rect.width;
         const height = rect.height;
 
-        // Clear canvas
         ctx.fillStyle = '#0A0D14';
         ctx.fillRect(0, 0, width, height);
 
@@ -425,29 +604,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Determine price bounds for scaling canvas Y axis
         const isLong = trade.isLong;
         const entry = trade.entry;
         const sl = trade.sl;
         const liq = trade.liqPrice;
         
-        // Take max TP from custom or preset
         const maxRr = Math.max(...trade.rrModes.map(m => m.rr));
         const maxTpPrice = isLong ? entry + (maxRr * trade.stopDistanceAbs) : entry - (maxRr * trade.stopDistanceAbs);
 
-        let minP = Math.min(entry, sl, liq, maxTpPrice);
-        let maxP = Math.max(entry, sl, liq, maxTpPrice);
+        // Gather all relevant prices to calculate bounds
+        let pricesList = [entry, sl, liq, maxTpPrice];
+        if (trade.isMulti) {
+            trade.multiBreakdown.forEach(row => pricesList.push(row.price));
+        }
 
-        // Add 10% padding to Y range
+        let minP = Math.min(...pricesList);
+        let maxP = Math.max(...pricesList);
+
         const pPadding = (maxP - minP) * 0.12;
         minP -= pPadding;
         maxP += pPadding;
 
         function priceToY(price) {
-            return height - ((price - minP) / (maxP - minP)) * (height - 60) - 30;
+            return height - ((price - minP) / ((maxP - minP) || 1)) * (height - 60) - 30;
         }
 
-        // Draw Background Grid Lines
+        // Background Grid
         if (state.showGrid) {
             ctx.strokeStyle = '#1E222D';
             ctx.lineWidth = 1;
@@ -465,36 +647,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const slY = priceToY(sl);
         const liqY = priceToY(liq);
 
-        // Draw Shaded Risk Zone (Red)
+        // Shaded Risk Zone (Red)
         ctx.fillStyle = 'rgba(255, 59, 105, 0.12)';
         ctx.fillRect(0, Math.min(entryY, slY), width - 120, Math.abs(slY - entryY));
 
-        // Draw Shaded Profit Zone (Green)
+        // Shaded Profit Zone (Green)
         const highestTpY = priceToY(maxTpPrice);
         ctx.fillStyle = 'rgba(0, 192, 118, 0.10)';
         ctx.fillRect(0, Math.min(entryY, highestTpY), width - 120, Math.abs(highestTpY - entryY));
 
-        // Draw Stop Loss Line (Red)
+        // Stop Loss Line (Red)
         drawLevelLine(ctx, slY, '#FF3B69', `STOP LOSS: $${formatPrice(sl)} (-${trade.stopDistancePct.toFixed(2)}%)`, width);
 
-        // Draw Entry Line (Blue)
-        drawLevelLine(ctx, entryY, '#2962FF', `ENTRY: $${formatPrice(entry)}`, width, false);
+        // Draw Multi-Orders Limit Lines if active
+        if (trade.isMulti) {
+            trade.multiBreakdown.forEach(row => {
+                const oY = priceToY(row.price);
+                ctx.setLineDash([2, 4]);
+                drawLevelLine(ctx, oY, '#5E6673', `Order #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%)`, width, true);
+                ctx.setLineDash([]);
+            });
+            drawLevelLine(ctx, entryY, '#2962FF', `AVG ENTRY: $${formatPrice(entry)}`, width, false);
+        } else {
+            drawLevelLine(ctx, entryY, '#2962FF', `ENTRY: $${formatPrice(entry)}`, width, false);
+        }
 
-        // Draw Liquidation Line (Amber Dotted)
+        // Liquidation Line (Amber Dotted)
         if (state.showLiq) {
             ctx.setLineDash([4, 4]);
             drawLevelLine(ctx, liqY, '#F0B90B', `LIQUIDATION: $${formatPrice(liq)}`, width);
             ctx.setLineDash([]);
         }
 
-        // Draw Preset R:R TP Lines (Green)
+        // Preset R:R TP Lines (Green)
         trade.rrModes.forEach(mode => {
             const tpY = priceToY(mode.tpPrice);
             const label = `TP 1:${mode.rr} -> $${formatPrice(mode.tpPrice)} (+$${mode.netProfitUsdt.toFixed(0)})`;
             drawLevelLine(ctx, tpY, '#00C076', label, width);
         });
 
-        // Draw Simulated Price Candlestick Icon
+        // Simulated Price Candlestick
         const candleX = 80;
         ctx.fillStyle = isLong ? '#00C076' : '#FF3B69';
         ctx.fillRect(candleX - 1, Math.min(entryY, slY) - 10, 2, Math.abs(slY - entryY) + 20);
@@ -504,18 +696,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawLevelLine(ctx, y, color, label, canvasWidth, isDashed = false) {
         ctx.save();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = isDashed ? 1 : 1.5;
 
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvasWidth - 140, y);
         ctx.stroke();
 
-        // Label Badge Background
         ctx.fillStyle = color;
         ctx.fillRect(canvasWidth - 135, y - 10, 130, 20);
 
-        // Label Text
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '600 10px "JetBrains Mono"';
         ctx.textAlign = 'left';
@@ -537,8 +727,18 @@ document.addEventListener('DOMContentLoaded', () => {
         text += `═══════════════════════════\n`;
         text += `Тип: ${dirSymbol} | Плечо: ${trade.lev}x\n`;
         text += `Депозит: $${trade.cap} | Риск: ${trade.riskPct}% ($${trade.riskUsdt.toFixed(2)})\n`;
-        text += `Вход (Entry): $${formatPrice(trade.entry)}\n`;
-        text += `Стоп-лосс (SL): $${formatPrice(trade.sl)} (-${trade.stopDistancePct.toFixed(2)}%)\n`;
+
+        if (trade.isMulti) {
+            text += `Режим: 🟣 Сетка мульти-ордеров (DCA)\n`;
+            text += `Средняя цена входа: $${formatPrice(trade.entry)}\n`;
+            trade.multiBreakdown.forEach(row => {
+                text += ` • Ордер #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%) -> $${row.orderUsdt.toFixed(2)} (${formatCoins(row.orderCoins)} Qty)\n`;
+            });
+        } else {
+            text += `Вход (Entry): $${formatPrice(trade.entry)}\n`;
+        }
+
+        text += `Стоп-лосс (SL): $${formatPrice(trade.sl)} (-${trade.stopDistancePct.toFixed(2)}% от ср. входа)\n`;
         text += `Маржа: $${trade.marginUsdt.toFixed(2)} | Объём: ${formatCoins(trade.posCoins)} Coin ($${trade.posValueUsdt.toFixed(2)})\n`;
         text += `Ликвидация: $${formatPrice(trade.liqPrice)}\n\n`;
         text += `🎯 **Цели R:R (Тейк-профиты):**\n`;
@@ -561,6 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             id: Date.now(),
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
             direction: state.direction,
+            mode: state.entryMode,
             pair: document.querySelector('.chip.active')?.textContent || 'CUSTOM',
             entry: trade.entry,
             sl: trade.sl,
@@ -595,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${item.pair} (${item.lev}x)</span>
                     <span class="history-time">${item.timestamp}</span>
                 </div>
-                <div>Entry: <b>$${formatPrice(item.entry)}</b> | SL: <b>$${formatPrice(item.sl)}</b></div>
+                <div>${item.mode === 'multi' ? 'Ср. Entry' : 'Entry'}: <b>$${formatPrice(item.entry)}</b> | SL: <b>$${formatPrice(item.sl)}</b></div>
                 <div style="color: var(--text-dim);">Риск: $${item.riskUsdt.toFixed(2)} | Позиция: $${item.posUsdt.toFixed(0)}</div>
             `;
             dom.historyListContainer.appendChild(card);
@@ -613,6 +814,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners Setup ---
 
     function setupEventListeners() {
+        // Entry Mode Switcher
+        dom.entryModeSingle.addEventListener('click', () => {
+            state.entryMode = 'single';
+            dom.entryModeSingle.classList.add('active');
+            dom.entryModeMulti.classList.remove('active');
+            dom.singleEntryGroup.classList.remove('hidden');
+            dom.multiEntryGroup.classList.add('hidden');
+            updateUI();
+        });
+
+        dom.entryModeMulti.addEventListener('click', () => {
+            state.entryMode = 'multi';
+            dom.entryModeMulti.classList.add('active');
+            dom.entryModeSingle.classList.remove('active');
+            dom.singleEntryGroup.classList.add('hidden');
+            dom.multiEntryGroup.classList.remove('hidden');
+            updateUI();
+        });
+
+        // Add Multi-Order button
+        dom.addMultiOrderBtn.addEventListener('click', () => {
+            const lastPrice = state.multiOrders.length > 0 ? state.multiOrders[state.multiOrders.length - 1].price : state.entryPrice;
+            const stepOffset = state.direction === 'long' ? 0.98 : 1.02;
+            const newPrice = lastPrice * stepOffset;
+            state.multiOrders.push({ price: parseFloat(newPrice.toFixed(4)), weightPct: 20 });
+            renderMultiOrdersList();
+            updateUI();
+        });
+
         // Direction buttons
         dom.dirLong.addEventListener('click', () => {
             state.direction = 'long';
@@ -659,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Risk Presets
         document.querySelectorAll('.risk-preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', () => {
                 document.querySelectorAll('.risk-preset-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 state.riskPercent = parseFloat(btn.dataset.risk);
@@ -709,6 +939,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     state.stopLossPrice = parseFloat(chip.dataset.sl);
                     dom.entryPriceInput.value = state.entryPrice;
                     dom.stopLossInput.value = state.stopLossPrice;
+                    if (state.multiOrders.length > 0) {
+                        state.multiOrders[0].price = state.entryPrice;
+                    }
+                    renderMultiOrdersList();
                     updateUI();
                 }
             });
@@ -775,6 +1009,8 @@ document.addEventListener('DOMContentLoaded', () => {
             state.entryPrice = 65000;
             state.stopLossPrice = 64000;
             state.leverage = 10;
+            state.entryMode = 'single';
+            dom.entryModeSingle.click();
             dom.capitalInput.value = 10000;
             dom.riskPercentInput.value = 1.0;
             dom.riskSlider.value = 1.0;
@@ -791,6 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initialize ---
+    renderMultiOrdersList();
     renderPartialTpSteps();
     renderHistory();
     setupEventListeners();
