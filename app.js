@@ -721,9 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (trade.isInvalid) return 'Ошибка: недействительные параметры сделки.';
 
         const dirSymbol = trade.isLong ? '🟢 LONG' : '🔴 SHORT';
-        const pair = document.querySelector('.chip.active')?.textContent || 'Crypto';
 
-        let text = `📊 **ФЬЮЧЕРСНАЯ СДЕЛКА | ${pair}**\n`;
+        let text = `📊 **ФЬЮЧЕРСНАЯ СДЕЛКА**\n`;
         text += `═══════════════════════════\n`;
         text += `Тип: ${dirSymbol} | Плечо: ${trade.lev}x\n`;
         text += `Депозит: $${trade.cap} | Риск: ${trade.riskPct}% ($${trade.riskUsdt.toFixed(2)})\n`;
@@ -762,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
             direction: state.direction,
             mode: state.entryMode,
-            pair: document.querySelector('.chip.active')?.textContent || 'CUSTOM',
+            pair: 'FUTURES',
             entry: trade.entry,
             sl: trade.sl,
             riskUsdt: trade.riskUsdt,
@@ -926,26 +925,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.feeInput.addEventListener('input', (e) => {
             state.feePercent = parseFloat(e.target.value) || 0;
             updateUI();
-        });
-
-        // Pair Preset Chips
-        document.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-
-                if (chip.dataset.price) {
-                    state.entryPrice = parseFloat(chip.dataset.price);
-                    state.stopLossPrice = parseFloat(chip.dataset.sl);
-                    dom.entryPriceInput.value = state.entryPrice;
-                    dom.stopLossInput.value = state.stopLossPrice;
-                    if (state.multiOrders.length > 0) {
-                        state.multiOrders[0].price = state.entryPrice;
-                    }
-                    renderMultiOrdersList();
-                    updateUI();
-                }
-            });
         });
 
         // Tab Switching
