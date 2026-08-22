@@ -337,10 +337,19 @@ body {
     transition: var(--transition-fast);
 }
 
+.input-wrapper.has-symbol input,
+.input-wrapper:has(.currency-symbol) input {
+    padding-left: 28px !important;
+}
+
 .input-wrapper .currency-symbol {
     position: absolute;
-    left: 10px;
-    color: var(--text-dim);
+    left: 12px;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .input-wrapper input:focus {
