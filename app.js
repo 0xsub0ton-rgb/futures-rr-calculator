@@ -593,12 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = rect.width;
         const height = rect.height;
 
-        ctx.fillStyle = '#0A0D14';
+        ctx.fillStyle = '#060806';
         ctx.fillRect(0, 0, width, height);
 
         if (trade.isInvalid) {
-            ctx.fillStyle = '#848E9C';
-            ctx.font = '14px Inter';
+            ctx.fillStyle = '#6A856A';
+            ctx.font = '13px "Space Mono"';
             ctx.textAlign = 'center';
             ctx.fillText('Укажите корректные параметры цены для отображения графика', width / 2, height / 2);
             return;
@@ -629,9 +629,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return height - ((price - minP) / ((maxP - minP) || 1)) * (height - 60) - 30;
         }
 
-        // Background Grid
+        // Background Grid (Matrix Terminal Grid)
         if (state.showGrid) {
-            ctx.strokeStyle = '#1E222D';
+            ctx.strokeStyle = '#141F14';
             ctx.lineWidth = 1;
             const gridSteps = 6;
             for (let i = 0; i <= gridSteps; i++) {
@@ -647,48 +647,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const slY = priceToY(sl);
         const liqY = priceToY(liq);
 
-        // Shaded Risk Zone (Red)
-        ctx.fillStyle = 'rgba(255, 59, 105, 0.12)';
-        ctx.fillRect(0, Math.min(entryY, slY), width - 120, Math.abs(slY - entryY));
+        // Shaded Risk Zone (Neon Crimson)
+        ctx.fillStyle = 'rgba(255, 59, 92, 0.10)';
+        ctx.fillRect(0, Math.min(entryY, slY), width - 130, Math.abs(slY - entryY));
 
-        // Shaded Profit Zone (Green)
+        // Shaded Profit Zone (Matrix Green)
         const highestTpY = priceToY(maxTpPrice);
-        ctx.fillStyle = 'rgba(0, 192, 118, 0.10)';
-        ctx.fillRect(0, Math.min(entryY, highestTpY), width - 120, Math.abs(highestTpY - entryY));
+        ctx.fillStyle = 'rgba(34, 238, 119, 0.08)';
+        ctx.fillRect(0, Math.min(entryY, highestTpY), width - 130, Math.abs(highestTpY - entryY));
 
-        // Stop Loss Line (Red)
-        drawLevelLine(ctx, slY, '#FF3B69', `STOP LOSS: $${formatPrice(sl)} (-${trade.stopDistancePct.toFixed(2)}%)`, width);
+        // Stop Loss Line (Neon Crimson)
+        drawLevelLine(ctx, slY, '#FF3B5C', `STOP LOSS: $${formatPrice(sl)} (-${trade.stopDistancePct.toFixed(2)}%)`, width);
 
         // Draw Multi-Orders Limit Lines if active
         if (trade.isMulti) {
             trade.multiBreakdown.forEach(row => {
                 const oY = priceToY(row.price);
                 ctx.setLineDash([2, 4]);
-                drawLevelLine(ctx, oY, '#5E6673', `Order #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%)`, width, true);
+                drawLevelLine(ctx, oY, '#6A856A', `Order #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%)`, width, true);
                 ctx.setLineDash([]);
             });
-            drawLevelLine(ctx, entryY, '#2962FF', `AVG ENTRY: $${formatPrice(entry)}`, width, false);
+            drawLevelLine(ctx, entryY, '#22EE77', `AVG ENTRY: $${formatPrice(entry)}`, width, false);
         } else {
-            drawLevelLine(ctx, entryY, '#2962FF', `ENTRY: $${formatPrice(entry)}`, width, false);
+            drawLevelLine(ctx, entryY, '#22EE77', `ENTRY: $${formatPrice(entry)}`, width, false);
         }
 
         // Liquidation Line (Amber Dotted)
         if (state.showLiq) {
             ctx.setLineDash([4, 4]);
-            drawLevelLine(ctx, liqY, '#F0B90B', `LIQUIDATION: $${formatPrice(liq)}`, width);
+            drawLevelLine(ctx, liqY, '#E6B800', `LIQUIDATION: $${formatPrice(liq)}`, width);
             ctx.setLineDash([]);
         }
 
-        // Preset R:R TP Lines (Green)
+        // Preset R:R TP Lines (Matrix Green)
         trade.rrModes.forEach(mode => {
             const tpY = priceToY(mode.tpPrice);
             const label = `TP 1:${mode.rr} -> $${formatPrice(mode.tpPrice)} (+$${mode.netProfitUsdt.toFixed(0)})`;
-            drawLevelLine(ctx, tpY, '#00C076', label, width);
+            drawLevelLine(ctx, tpY, '#22EE77', label, width);
         });
 
         // Simulated Price Candlestick
         const candleX = 80;
-        ctx.fillStyle = isLong ? '#00C076' : '#FF3B69';
+        ctx.fillStyle = isLong ? '#22EE77' : '#FF3B5C';
         ctx.fillRect(candleX - 1, Math.min(entryY, slY) - 10, 2, Math.abs(slY - entryY) + 20);
         ctx.fillRect(candleX - 10, Math.min(entryY, slY), 20, Math.abs(slY - entryY));
     }
@@ -700,17 +700,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvasWidth - 140, y);
+        ctx.lineTo(canvasWidth - 145, y);
         ctx.stroke();
 
-        ctx.fillStyle = color;
-        ctx.fillRect(canvasWidth - 135, y - 10, 130, 20);
+        // Terminal Badge Box
+        ctx.fillStyle = '#0E120E';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.fillRect(canvasWidth - 140, y - 10, 135, 20);
+        ctx.strokeRect(canvasWidth - 140, y - 10, 135, 20);
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '600 10px "JetBrains Mono"';
+        ctx.fillStyle = color;
+        ctx.font = '700 10px "Space Mono", monospace';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label, canvasWidth - 130, y);
+        ctx.fillText(label, canvasWidth - 135, y);
         ctx.restore();
     }
 
