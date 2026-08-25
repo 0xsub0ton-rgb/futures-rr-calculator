@@ -1099,3 +1099,172 @@ body {
     transform: translateY(20px);
     pointer-events: none;
 }
+
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVE ADAPTATION
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .app-container {
+        padding: 10px 8px;
+        gap: 12px;
+    }
+
+    .app-header {
+        padding: 12px 14px;
+    }
+
+    .brand-text h1 {
+        font-size: 1rem;
+    }
+
+    .brand-sub {
+        font-size: 9px;
+    }
+
+    .live-badge {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+
+    .sidebar-panel {
+        padding: 14px 12px;
+        gap: 14px;
+    }
+
+    /* Prevent auto-zoom on iOS Safari when tapping inputs */
+    .input-wrapper input,
+    .number-suffix input,
+    .custom-rr-builder input {
+        font-size: 15px;
+    }
+
+    .dir-btn, .mode-btn {
+        padding: 10px;
+        font-size: 12px;
+        min-height: 40px;
+    }
+
+    .risk-preset-btn {
+        padding: 8px 2px;
+        font-size: 11px;
+        min-height: 38px;
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .metric-card {
+        padding: 12px 10px;
+        gap: 8px;
+    }
+
+    .metric-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .metric-title {
+        font-size: 9px;
+    }
+
+    .metric-value {
+        font-size: 0.95rem;
+    }
+
+    .metric-sub {
+        font-size: 9px;
+    }
+
+    .view-tabs {
+        gap: 4px;
+        padding-bottom: 6px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .view-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-btn {
+        padding: 8px 10px;
+        font-size: 10px;
+    }
+
+    .section-card {
+        padding: 14px 12px;
+        gap: 12px;
+    }
+
+    .rr-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .rr-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .rr-badge {
+        font-size: 0.85rem;
+        padding: 3px 6px;
+    }
+
+    .stat-row {
+        font-size: 10px;
+    }
+
+    .stat-row .val.highlight {
+        font-size: 0.85rem;
+    }
+
+    #tradeCanvas {
+        height: 340px;
+    }
+
+    .action-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .copy-box {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
+        font-size: 12px;
+    }
+
+    .toast {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .rr-cards-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .multi-order-row {
+        flex-wrap: wrap;
+    }
+
+    .multi-order-row .input-wrapper {
+        min-width: 120px;
+    }
+}
