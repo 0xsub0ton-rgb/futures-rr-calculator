@@ -53,6 +53,12 @@
     padding: 0;
 }
 
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 body {
     background-color: var(--bg-dark);
     color: var(--text-main);
@@ -81,6 +87,7 @@ body {
 }
 
 .app-container {
+    width: 100%;
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
@@ -88,6 +95,7 @@ body {
     flex-direction: column;
     gap: 16px;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* Header - BPSCAN Terminal Style */
@@ -1106,12 +1114,22 @@ body {
 
 @media (max-width: 768px) {
     .app-container {
-        padding: 10px 8px;
+        padding: 8px 6px;
         gap: 12px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     .app-header {
         padding: 12px 14px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .header-status {
+        align-self: flex-start;
     }
 
     .brand-text h1 {
@@ -1130,6 +1148,8 @@ body {
     .sidebar-panel {
         padding: 14px 12px;
         gap: 14px;
+        width: 100%;
+        max-width: 100%;
     }
 
     /* Prevent auto-zoom on iOS Safari when tapping inputs */
@@ -1140,8 +1160,8 @@ body {
     }
 
     .dir-btn, .mode-btn {
-        padding: 10px;
-        font-size: 12px;
+        padding: 10px 4px;
+        font-size: 11px;
         min-height: 40px;
     }
 
@@ -1152,83 +1172,95 @@ body {
     }
 
     .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
+        width: 100%;
     }
 
     .metric-card {
-        padding: 12px 10px;
-        gap: 8px;
+        padding: 10px 8px;
+        gap: 6px;
+        min-width: 0;
     }
 
     .metric-icon {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
     }
 
     .metric-title {
-        font-size: 9px;
+        font-size: 8.5px;
     }
 
     .metric-value {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
     }
 
     .metric-sub {
-        font-size: 9px;
+        font-size: 8.5px;
     }
 
+    /* Tabs Navigation - Wrapped cleanly across mobile screen width (NO scroll) */
     .view-tabs {
-        gap: 4px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
         padding-bottom: 6px;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .view-tabs::-webkit-scrollbar {
-        display: none;
+        overflow-x: hidden;
+        width: 100%;
     }
 
     .tab-btn {
-        padding: 8px 10px;
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+        text-align: center;
+        padding: 8px 6px;
         font-size: 10px;
+        white-space: normal;
+        min-width: 0;
     }
 
     .section-card {
         padding: 14px 12px;
         gap: 12px;
+        width: 100%;
+        max-width: 100%;
     }
 
     .rr-cards-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
     }
 
     .rr-card {
-        padding: 12px;
-        gap: 10px;
+        padding: 10px;
+        gap: 8px;
+        min-width: 0;
     }
 
     .rr-badge {
-        font-size: 0.85rem;
-        padding: 3px 6px;
+        font-size: 0.8rem;
+        padding: 2px 5px;
     }
 
     .stat-row {
-        font-size: 10px;
+        font-size: 9.5px;
     }
 
     .stat-row .val.highlight {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
 
     #tradeCanvas {
-        height: 340px;
+        height: 320px;
+        width: 100%;
     }
 
     .action-footer {
         flex-direction: column;
         align-items: stretch;
+        width: 100%;
     }
 
     .copy-box {
@@ -1253,11 +1285,15 @@ body {
 
 @media (max-width: 480px) {
     .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .rr-cards-grid {
         grid-template-columns: 1fr;
+    }
+
+    .tab-btn {
+        flex: 1 1 100%;
     }
 
     .multi-order-row {
@@ -1265,6 +1301,6 @@ body {
     }
 
     .multi-order-row .input-wrapper {
-        min-width: 120px;
+        min-width: 100px;
     }
 }
