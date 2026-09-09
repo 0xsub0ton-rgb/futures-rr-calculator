@@ -5,11 +5,20 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
+    const savedCapital = localStorage.getItem('trading_capital');
+    let initialCapital = 10000;
+    if (savedCapital !== null && savedCapital !== '') {
+        const parsedCap = parseFloat(savedCapital);
+        if (!isNaN(parsedCap) && parsedCap > 0) {
+            initialCapital = parsedCap;
+        }
+    }
+
     const state = {
         ticker: 'BTC',
         entryMode: 'single', // 'single' or 'multi'
         direction: 'long', // 'long' or 'short'
-        capital: 10000,
+        capital: initialCapital,
         riskPercent: 1.0,
         entryPrice: 65000,
         stopLossPrice: 64000,
@@ -1017,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.direction = item.direction || 'long';
         state.entryMode = item.mode || 'single';
         state.capital = item.capital || item.cap || 10000;
+        localStorage.setItem('trading_capital', state.capital);
         state.riskPercent = item.riskPercent || item.riskPct || 1.0;
         state.entryPrice = item.entry || 65000;
         state.stopLossPrice = item.sl || 64000;
@@ -1126,6 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Numeric inputs
         dom.capitalInput.addEventListener('input', (e) => {
             state.capital = parseFloat(e.target.value) || 0;
+            localStorage.setItem('trading_capital', state.capital);
             updateUI();
         });
 
@@ -1251,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.resetBtn.addEventListener('click', () => {
             state.ticker = 'BTC';
             state.capital = 10000;
+            localStorage.setItem('trading_capital', 10000);
             state.riskPercent = 1.0;
             state.entryPrice = 65000;
             state.stopLossPrice = 64000;
@@ -1300,6 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initialize ---
+    dom.capitalInput.value = state.capital;
     renderMultiOrdersList();
     renderPartialTpSteps();
     renderHistory();
