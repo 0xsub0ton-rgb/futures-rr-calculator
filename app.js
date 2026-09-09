@@ -1,11 +1,12 @@
 /**
  * Futures Risk & Reward Calculator
- * Real-time calculation engine, canvas renderer, partial TPs, multi-orders DCA grid, and local storage history.
+ * Real-time calculation engine, canvas renderer, partial TPs, multi-orders DCA grid, pop-up trade modal, and local storage history.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
     const state = {
+        ticker: 'BTC/USDT',
         entryMode: 'single', // 'single' or 'multi'
         direction: 'long', // 'long' or 'short'
         capital: 10000,
@@ -29,8 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
         showLiq: true
     };
 
+    let activeModalItem = null;
+
     // --- DOM Elements ---
     const dom = {
+        // Ticker Input
+        tickerInput: document.getElementById('tickerInput'),
+
         // Mode & Switches
         entryModeSingle: document.getElementById('entryModeSingle'),
         entryModeMulti: document.getElementById('entryModeMulti'),
@@ -96,7 +102,17 @@ document.addEventListener('DOMContentLoaded', () => {
         saveHistoryBtn: document.getElementById('saveHistoryBtn'),
         clearHistoryBtn: document.getElementById('clearHistoryBtn'),
         historyListContainer: document.getElementById('historyListContainer'),
-        toast: document.getElementById('toast')
+        toast: document.getElementById('toast'),
+
+        // Modal Elements
+        tradeModal: document.getElementById('tradeModal'),
+        modalTitle: document.getElementById('modalTitle'),
+        modalTimestamp: document.getElementById('modalTimestamp'),
+        modalBodyContent: document.getElementById('modalBodyContent'),
+        closeModalBtn: document.getElementById('closeModalBtn'),
+        modalCloseBtn: document.getElementById('modalCloseBtn'),
+        modalRestoreBtn: document.getElementById('modalRestoreBtn'),
+        modalCopyBtn: document.getElementById('modalCopyBtn')
     };
 
     // --- Core Calculations Engine ---
@@ -117,10 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalAllocWeight = 100;
 
         if (isMulti) {
-            // Multi-order DCA calculations
             totalAllocWeight = state.multiOrders.reduce((sum, o) => sum + (o.weightPct || 0), 0);
             
-            // Check order prices validity
             state.multiOrders.forEach(o => {
                 const p = parseFloat(o.price) || 0;
                 if (p <= 0 || sl <= 0) isInvalid = true;
@@ -129,10 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!isInvalid && state.multiOrders.length > 0 && cap > 0 && riskPct > 0) {
-                // Formula: Total Loss at SL = sum( Q_i * |P_i - SL| ) = RiskUsdt
-                // Q_i = (w_i * V_total) / P_i
-                // Loss_i = (w_i * V_total) * (|P_i - SL| / P_i)
-                // V_total = RiskUsdt / sum( w_i * (|P_i - SL| / P_i) )
                 let sumWeightedDistRatio = 0;
                 const activeOrders = state.multiOrders.filter(o => o.price > 0 && o.weightPct > 0);
 
@@ -166,14 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     });
 
-                    // Weighted average entry price
                     entry = posValueUsdt / (totalCoins || 1);
                 } else {
                     isInvalid = true;
                 }
             }
         } else {
-            // Single Order mode validation
             if (entry <= 0 || sl <= 0 || cap <= 0 || riskPct <= 0) {
                 isInvalid = true;
             } else if (isLong && sl >= entry) {
@@ -183,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Distance calculations using effective average entry
         let stopDistanceAbs = 0;
         let stopDistancePct = 0;
 
@@ -194,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         stopDistancePct = (stopDistanceAbs / (entry || 1)) * 100;
 
-        // Position totals
         let posValueUsdt = 0;
         let posCoins = 0;
         let marginUsdt = 0;
@@ -205,7 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
             marginUsdt = posValueUsdt / lev;
         }
 
-        // Liquidation Price (Isolated Margin Approximation)
         const mmr = 0.004;
         let liqPrice = 0;
         let liqDistPct = 0;
@@ -218,7 +223,6 @@ document.addEventListener('DOMContentLoaded', () => {
             liqDistPct = ((liqPrice - entry) / (entry || 1)) * 100;
         }
 
-        // Calculate R:R preset targets
         const presetRrs = [3, 5, 6, 10, parseFloat(state.customRr) || 4];
         const rrModes = presetRrs.map(r => {
             let tpPrice = 0;
@@ -341,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             dom.tabBtnMultiOrders.classList.add('hidden');
             if (dom.tabMultiOrders.classList.contains('active')) {
-                // Fallback tab if multi-orders tab was active
                 dom.tabBtnMultiOrders.classList.remove('active');
                 document.querySelector('.tab-btn[data-tab="tabRrModes"]').click();
             }
@@ -454,7 +457,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.multiOrdersList.appendChild(row);
         });
 
-        // Add input handlers
         document.querySelectorAll('.multi-price-input').forEach(inp => {
             inp.addEventListener('input', (e) => {
                 const idx = parseInt(e.target.dataset.idx);
@@ -612,7 +614,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxRr = Math.max(...trade.rrModes.map(m => m.rr));
         const maxTpPrice = isLong ? entry + (maxRr * trade.stopDistanceAbs) : entry - (maxRr * trade.stopDistanceAbs);
 
-        // Gather all relevant prices to calculate bounds
         let pricesList = [entry, sl, liq, maxTpPrice];
         if (trade.isMulti) {
             trade.multiBreakdown.forEach(row => pricesList.push(row.price));
@@ -629,7 +630,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return height - ((price - minP) / ((maxP - minP) || 1)) * (height - 60) - 30;
         }
 
-        // Background Grid (Matrix Terminal Grid)
         if (state.showGrid) {
             ctx.strokeStyle = '#141F14';
             ctx.lineWidth = 1;
@@ -647,19 +647,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const slY = priceToY(sl);
         const liqY = priceToY(liq);
 
-        // Shaded Risk Zone (Neon Crimson)
         ctx.fillStyle = 'rgba(255, 59, 92, 0.10)';
         ctx.fillRect(0, Math.min(entryY, slY), width - 130, Math.abs(slY - entryY));
 
-        // Shaded Profit Zone (Matrix Green)
         const highestTpY = priceToY(maxTpPrice);
         ctx.fillStyle = 'rgba(34, 238, 119, 0.08)';
         ctx.fillRect(0, Math.min(entryY, highestTpY), width - 130, Math.abs(highestTpY - entryY));
 
-        // Stop Loss Line (Neon Crimson)
         drawLevelLine(ctx, slY, '#FF3B5C', `STOP LOSS: $${formatPrice(sl)} (-${trade.stopDistancePct.toFixed(2)}%)`, width);
 
-        // Draw Multi-Orders Limit Lines if active
         if (trade.isMulti) {
             trade.multiBreakdown.forEach(row => {
                 const oY = priceToY(row.price);
@@ -672,21 +668,18 @@ document.addEventListener('DOMContentLoaded', () => {
             drawLevelLine(ctx, entryY, '#22EE77', `ENTRY: $${formatPrice(entry)}`, width, false);
         }
 
-        // Liquidation Line (Amber Dotted)
         if (state.showLiq) {
             ctx.setLineDash([4, 4]);
             drawLevelLine(ctx, liqY, '#E6B800', `LIQUIDATION: $${formatPrice(liq)}`, width);
             ctx.setLineDash([]);
         }
 
-        // Preset R:R TP Lines (Matrix Green)
         trade.rrModes.forEach(mode => {
             const tpY = priceToY(mode.tpPrice);
             const label = `TP 1:${mode.rr} -> $${formatPrice(mode.tpPrice)} (+$${mode.netProfitUsdt.toFixed(0)})`;
             drawLevelLine(ctx, tpY, '#22EE77', label, width);
         });
 
-        // Simulated Price Candlestick
         const candleX = 80;
         ctx.fillStyle = isLong ? '#22EE77' : '#FF3B5C';
         ctx.fillRect(candleX - 1, Math.min(entryY, slY) - 10, 2, Math.abs(slY - entryY) + 20);
@@ -703,7 +696,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(canvasWidth - 145, y);
         ctx.stroke();
 
-        // Terminal Badge Box
         ctx.fillStyle = '#0E120E';
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
@@ -718,37 +710,48 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.restore();
     }
 
-    // --- Copy & History Management ---
+    // --- Trade Summary & History Management ---
 
-    function generateTradeSummaryText() {
-        const trade = calculateTrade();
+    function generateTradeSummaryText(tradeItem = null) {
+        const trade = tradeItem || calculateTrade();
         if (trade.isInvalid) return 'Ошибка: недействительные параметры сделки.';
 
-        const dirSymbol = trade.isLong ? '🟢 LONG' : '🔴 SHORT';
+        const isLong = trade.isLong !== undefined ? trade.isLong : (trade.direction === 'long');
+        const dirSymbol = isLong ? '🟢 LONG' : '🔴 SHORT';
+        const tickerName = trade.ticker || state.ticker || 'BTC/USDT';
+        const lev = trade.lev || trade.leverage || 10;
+        const cap = trade.cap || trade.capital || 10000;
+        const riskPct = trade.riskPct || trade.riskPercent || 1.0;
+        const riskUsdt = trade.riskUsdt || 100;
+        const isMulti = trade.isMulti !== undefined ? trade.isMulti : (trade.mode === 'multi');
 
-        let text = `📊 **ФЬЮЧЕРСНАЯ СДЕЛКА**\n`;
+        let text = `📊 **ФЬЮЧЕРСНАЯ СДЕЛКА | ${tickerName.toUpperCase()}**\n`;
         text += `═══════════════════════════\n`;
-        text += `Тип: ${dirSymbol} | Плечо: ${trade.lev}x\n`;
-        text += `Депозит: $${trade.cap} | Риск: ${trade.riskPct}% ($${trade.riskUsdt.toFixed(2)})\n`;
+        text += `Тип: ${dirSymbol} | Плечо: ${lev}x\n`;
+        text += `Депозит: $${cap} | Риск: ${riskPct}% ($${riskUsdt.toFixed(2)})\n`;
 
-        if (trade.isMulti) {
+        if (isMulti) {
             text += `Режим: 🟣 Сетка мульти-ордеров (DCA)\n`;
             text += `Средняя цена входа: $${formatPrice(trade.entry)}\n`;
-            trade.multiBreakdown.forEach(row => {
-                text += ` • Ордер #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%) -> $${row.orderUsdt.toFixed(2)} (${formatCoins(row.orderCoins)} Qty)\n`;
-            });
+            if (trade.multiBreakdown) {
+                trade.multiBreakdown.forEach(row => {
+                    text += ` • Ордер #${row.index}: $${formatPrice(row.price)} (${row.weightPct}%) -> $${row.orderUsdt.toFixed(2)} (${formatCoins(row.orderCoins)} Qty)\n`;
+                });
+            }
         } else {
             text += `Вход (Entry): $${formatPrice(trade.entry)}\n`;
         }
 
-        text += `Стоп-лосс (SL): $${formatPrice(trade.sl)} (-${trade.stopDistancePct.toFixed(2)}% от ср. входа)\n`;
-        text += `Маржа: $${trade.marginUsdt.toFixed(2)} | Объём: ${formatCoins(trade.posCoins)} Coin ($${trade.posValueUsdt.toFixed(2)})\n`;
+        text += `Стоп-лосс (SL): $${formatPrice(trade.sl)} (-${(trade.stopDistancePct || 0).toFixed(2)}%)\n`;
+        text += `Маржа: $${(trade.marginUsdt || 0).toFixed(2)} | Объём: ${formatCoins(trade.posCoins)} Coin ($${(trade.posValueUsdt || trade.posUsdt || 0).toFixed(2)})\n`;
         text += `Ликвидация: $${formatPrice(trade.liqPrice)}\n\n`;
         text += `🎯 **Цели R:R (Тейк-профиты):**\n`;
 
-        trade.rrModes.forEach(m => {
-            text += ` • 1:${m.rr} -> $${formatPrice(m.tpPrice)} | Профит: +$${m.netProfitUsdt.toFixed(2)} (+${m.accountGrowthPct.toFixed(2)}% dep)\n`;
-        });
+        if (trade.rrModes) {
+            trade.rrModes.forEach(m => {
+                text += ` • 1:${m.rr} -> $${formatPrice(m.tpPrice)} | Профит: +$${m.netProfitUsdt.toFixed(2)} (+${m.accountGrowthPct.toFixed(2)}% dep)\n`;
+            });
+        }
 
         return text;
     }
@@ -763,14 +766,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = {
             id: Date.now(),
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            ticker: (state.ticker || 'BTC/USDT').trim().toUpperCase(),
             direction: state.direction,
             mode: state.entryMode,
-            pair: 'FUTURES',
+            capital: trade.cap,
+            riskPercent: trade.riskPct,
+            riskUsdt: trade.riskUsdt,
             entry: trade.entry,
             sl: trade.sl,
-            riskUsdt: trade.riskUsdt,
-            posUsdt: trade.posValueUsdt,
-            lev: trade.lev
+            stopDistancePct: trade.stopDistancePct,
+            leverage: trade.lev,
+            feePercent: state.feePercent,
+            customRr: state.customRr,
+            marginUsdt: trade.marginUsdt,
+            posValueUsdt: trade.posValueUsdt,
+            posCoins: trade.posCoins,
+            liqPrice: trade.liqPrice,
+            liqDistPct: trade.liqDistPct,
+            multiOrders: JSON.parse(JSON.stringify(state.multiOrders)),
+            multiBreakdown: JSON.parse(JSON.stringify(trade.multiBreakdown)),
+            partialTps: JSON.parse(JSON.stringify(state.partialTps)),
+            rrModes: JSON.parse(JSON.stringify(trade.rrModes))
         };
 
         state.history.unshift(item);
@@ -778,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         localStorage.setItem('trading_rr_history', JSON.stringify(state.history));
         renderHistory();
-        showToast('Сделка сохранена в историю!');
+        showToast(`Сделка ${item.ticker} сохранена в историю!`);
     }
 
     function renderHistory() {
@@ -793,17 +809,198 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'history-item';
             const isLong = item.direction === 'long';
+            const tickerName = item.ticker || 'BTC/USDT';
+            const lev = item.leverage || item.lev || 10;
+            const posVal = item.posValueUsdt || item.posUsdt || 0;
 
             card.innerHTML = `
                 <div class="history-item-header">
-                    <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${item.pair} (${item.lev}x)</span>
+                    <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)</span>
                     <span class="history-time">${item.timestamp}</span>
                 </div>
                 <div>${item.mode === 'multi' ? 'Ср. Entry' : 'Entry'}: <b>$${formatPrice(item.entry)}</b> | SL: <b>$${formatPrice(item.sl)}</b></div>
-                <div style="color: var(--text-dim);">Риск: $${item.riskUsdt.toFixed(2)} | Позиция: $${item.posUsdt.toFixed(0)}</div>
+                <div style="color: var(--text-dim);">Риск: ${formatUsdt(item.riskUsdt)} | Позиция: ${formatUsdt(posVal)}</div>
             `;
+
+            card.addEventListener('click', () => {
+                openTradeModal(item);
+            });
+
             dom.historyListContainer.appendChild(card);
         });
+    }
+
+    // --- Trade Pop-up Modal Controller ---
+
+    function openTradeModal(item) {
+        activeModalItem = item;
+        const isLong = item.direction === 'long';
+        const tickerName = item.ticker || 'BTC/USDT';
+        const lev = item.leverage || item.lev || 10;
+        const posVal = item.posValueUsdt || item.posUsdt || 0;
+
+        dom.modalTitle.textContent = `${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)`;
+        dom.modalTitle.className = isLong ? 'green' : 'red';
+        dom.modalTimestamp.textContent = `Сохранено в ${item.timestamp}`;
+
+        let html = `
+            <div class="modal-grid-stats">
+                <div class="modal-stat-box">
+                    <span class="title">Капитал</span>
+                    <span class="value">$${(item.capital || item.cap || 0).toLocaleString()}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Сумма Риска (SL)</span>
+                    <span class="value red">${formatUsdt(item.riskUsdt)} (${item.riskPercent || item.riskPct}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">${item.mode === 'multi' ? 'Ср. Цена Входа' : 'Цена Входа'}</span>
+                    <span class="value accent">$${formatPrice(item.entry)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Стоп-лосс (SL)</span>
+                    <span class="value red">$${formatPrice(item.sl)} (-${(item.stopDistancePct || 0).toFixed(2)}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Объём позиции</span>
+                    <span class="value accent">${formatUsdt(posVal)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Маржа</span>
+                    <span class="value">${formatUsdt(item.marginUsdt)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Монеты</span>
+                    <span class="value">${formatCoins(item.posCoins)} Qty</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Ликвидация</span>
+                    <span class="value warning">$${formatPrice(item.liqPrice)}</span>
+                </div>
+            </div>
+        `;
+
+        if (item.mode === 'multi' && item.multiBreakdown && item.multiBreakdown.length > 0) {
+            html += `
+                <div style="margin-top: 6px;">
+                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Сетка лимитных ордеров (DCA)</h4>
+                    <table class="modal-rr-table">
+                        <thead>
+                            <tr>
+                                <th>Ордер #</th>
+                                <th>Цена входа</th>
+                                <th>Доля (%)</th>
+                                <th>Номинал ($)</th>
+                                <th>Монеты (Qty)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            item.multiBreakdown.forEach(row => {
+                html += `
+                    <tr>
+                        <td><b>Ордер #${row.index}</b></td>
+                        <td class="accent">$${formatPrice(row.price)}</td>
+                        <td>${row.weightPct}%</td>
+                        <td class="green">${formatUsdt(row.orderUsdt)}</td>
+                        <td>${formatCoins(row.orderCoins)} Qty</td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        html += `
+            <div style="margin-top: 6px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Целевые уровни Risk : Reward</h4>
+                <table class="modal-rr-table">
+                    <thead>
+                        <tr>
+                            <th>Соотношение</th>
+                            <th>Целевая цена (TP)</th>
+                            <th>Чистая прибыль ($)</th>
+                            <th>Прирост депозита</th>
+                            <th>ROE %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (item.rrModes && item.rrModes.length > 0) {
+            item.rrModes.forEach(m => {
+                html += `
+                    <tr>
+                        <td><b class="green">1 : ${m.rr}</b></td>
+                        <td class="accent"><b>$${formatPrice(m.tpPrice)}</b></td>
+                        <td class="green"><b>${formatUsdt(m.netProfitUsdt)}</b></td>
+                        <td class="green">+${(m.accountGrowthPct || 0).toFixed(2)}%</td>
+                        <td>+${(m.roePct || 0).toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `</tbody></table></div>`;
+
+        dom.modalBodyContent.innerHTML = html;
+        dom.tradeModal.classList.remove('hidden');
+    }
+
+    function closeTradeModal() {
+        dom.tradeModal.classList.add('hidden');
+        activeModalItem = null;
+    }
+
+    function restoreTradeToCalculator(item) {
+        if (!item) return;
+
+        state.ticker = item.ticker || 'BTC/USDT';
+        state.direction = item.direction || 'long';
+        state.entryMode = item.mode || 'single';
+        state.capital = item.capital || item.cap || 10000;
+        state.riskPercent = item.riskPercent || item.riskPct || 1.0;
+        state.entryPrice = item.entry || 65000;
+        state.stopLossPrice = item.sl || 64000;
+        state.leverage = item.leverage || item.lev || 10;
+
+        if (item.feePercent !== undefined) state.feePercent = item.feePercent;
+        if (item.customRr !== undefined) state.customRr = item.customRr;
+        if (item.multiOrders) state.multiOrders = JSON.parse(JSON.stringify(item.multiOrders));
+        if (item.partialTps) state.partialTps = JSON.parse(JSON.stringify(item.partialTps));
+
+        dom.tickerInput.value = state.ticker;
+        dom.capitalInput.value = state.capital;
+        dom.riskPercentInput.value = state.riskPercent;
+        dom.riskSlider.value = state.riskPercent;
+        dom.entryPriceInput.value = state.entryPrice;
+        dom.stopLossInput.value = state.stopLossPrice;
+        dom.leverageInput.value = state.leverage;
+        dom.leverageSlider.value = state.leverage;
+
+        if (state.direction === 'long') {
+            dom.dirLong.classList.add('active');
+            dom.dirShort.classList.remove('active');
+        } else {
+            dom.dirShort.classList.add('active');
+            dom.dirLong.classList.remove('active');
+        }
+
+        if (state.entryMode === 'multi') {
+            dom.entryModeMulti.classList.add('active');
+            dom.entryModeSingle.classList.remove('active');
+            dom.singleEntryGroup.classList.add('hidden');
+            dom.multiEntryGroup.classList.remove('hidden');
+            renderMultiOrdersList();
+        } else {
+            dom.entryModeSingle.classList.add('active');
+            dom.entryModeMulti.classList.remove('active');
+            dom.singleEntryGroup.classList.remove('hidden');
+            dom.multiEntryGroup.classList.add('hidden');
+        }
+
+        updateUI();
+        closeTradeModal();
+        showToast(`Сделка ${state.ticker} загружена в калькулятор!`);
     }
 
     function showToast(msg) {
@@ -817,6 +1014,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners Setup ---
 
     function setupEventListeners() {
+        // Ticker input
+        dom.tickerInput.addEventListener('input', (e) => {
+            state.ticker = e.target.value;
+            updateUI();
+        });
+
         // Entry Mode Switcher
         dom.entryModeSingle.addEventListener('click', () => {
             state.entryMode = 'single';
@@ -987,12 +1190,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         dom.resetBtn.addEventListener('click', () => {
+            state.ticker = 'BTC/USDT';
             state.capital = 10000;
             state.riskPercent = 1.0;
             state.entryPrice = 65000;
             state.stopLossPrice = 64000;
             state.leverage = 10;
             state.entryMode = 'single';
+            dom.tickerInput.value = 'BTC/USDT';
             dom.entryModeSingle.click();
             dom.capitalInput.value = 10000;
             dom.riskPercentInput.value = 1.0;
@@ -1002,6 +1207,26 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.leverageInput.value = 10;
             dom.leverageSlider.value = 10;
             updateUI();
+        });
+
+        // Modal Close listeners
+        dom.closeModalBtn.addEventListener('click', closeTradeModal);
+        dom.modalCloseBtn.addEventListener('click', closeTradeModal);
+        dom.tradeModal.addEventListener('click', (e) => {
+            if (e.target === dom.tradeModal) closeTradeModal();
+        });
+
+        dom.modalRestoreBtn.addEventListener('click', () => {
+            if (activeModalItem) restoreTradeToCalculator(activeModalItem);
+        });
+
+        dom.modalCopyBtn.addEventListener('click', () => {
+            if (activeModalItem) {
+                const text = generateTradeSummaryText(activeModalItem);
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('Сводка сделки скопирована!');
+                });
+            }
         });
 
         window.addEventListener('resize', () => {
