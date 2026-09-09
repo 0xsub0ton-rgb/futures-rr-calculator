@@ -833,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="history-item-header">
-                    <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)</span>
+                    <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢' : '🔴'} ${tickerName} (${lev}x)</span>
                     <div class="history-header-actions">
                         <span class="history-time">${item.timestamp}</span>
                         <button class="history-delete-btn" title="Удалить сделку">
@@ -890,7 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mmr = 0.004;
         const liqPrice = item.liqPrice || (isLong ? entry * (1 - (1 / lev) + mmr) : entry * (1 + (1 / lev) - mmr));
 
-        dom.modalTitle.textContent = `${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)`;
+        dom.modalTitle.textContent = `${isLong ? '🟢' : '🔴'} ${tickerName} (${lev}x)`;
         dom.modalTitle.className = isLong ? 'green' : 'red';
         dom.modalTimestamp.textContent = `Сохранено в ${item.timestamp}`;
 
