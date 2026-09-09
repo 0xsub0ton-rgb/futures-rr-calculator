@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
     const state = {
-        ticker: 'BTC/USDT',
+        ticker: 'BTC',
         entryMode: 'single', // 'single' or 'multi'
         direction: 'long', // 'long' or 'short'
         capital: 10000,
@@ -719,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isLong = trade.isLong !== undefined ? trade.isLong : (trade.direction === 'long');
         const dirSymbol = isLong ? '🟢 LONG' : '🔴 SHORT';
-        const tickerName = trade.ticker || state.ticker || 'BTC/USDT';
+        const tickerName = trade.ticker || state.ticker || 'BTC';
         const lev = trade.lev || trade.leverage || 10;
         const cap = trade.cap || trade.capital || 10000;
         const riskPct = trade.riskPct || trade.riskPercent || 1.0;
@@ -767,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = {
             id: Date.now(),
             timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-            ticker: (state.ticker || 'BTC/USDT').trim().toUpperCase(),
+            ticker: (state.ticker || 'BTC').trim().toUpperCase(),
             direction: state.direction,
             mode: state.entryMode,
             capital: trade.cap,
@@ -818,7 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'history-item';
             const isLong = item.direction === 'long';
-            const tickerName = item.ticker || 'BTC/USDT';
+            const tickerName = item.ticker || 'BTC';
             const lev = item.leverage || item.lev || 10;
             const posVal = item.posValueUsdt || item.posUsdt || 0;
 
@@ -862,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openTradeModal(item) {
         activeModalItem = item;
         const isLong = item.direction === 'long';
-        const tickerName = item.ticker || 'BTC/USDT';
+        const tickerName = item.ticker || 'BTC';
         const entry = parseFloat(item.entry) || 0;
         const sl = parseFloat(item.sl) || 0;
         const lev = parseInt(item.leverage || item.lev) || 10;
@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function restoreTradeToCalculator(item) {
         if (!item) return;
 
-        state.ticker = item.ticker || 'BTC/USDT';
+        state.ticker = item.ticker || 'BTC';
         state.direction = item.direction || 'long';
         state.entryMode = item.mode || 'single';
         state.capital = item.capital || item.cap || 10000;
@@ -1249,14 +1249,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         dom.resetBtn.addEventListener('click', () => {
-            state.ticker = 'BTC/USDT';
+            state.ticker = 'BTC';
             state.capital = 10000;
             state.riskPercent = 1.0;
             state.entryPrice = 65000;
             state.stopLossPrice = 64000;
             state.leverage = 10;
             state.entryMode = 'single';
-            dom.tickerInput.value = 'BTC/USDT';
+            dom.tickerInput.value = 'BTC';
             dom.entryModeSingle.click();
             dom.capitalInput.value = 10000;
             dom.riskPercentInput.value = 1.0;
