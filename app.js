@@ -112,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModalBtn: document.getElementById('closeModalBtn'),
         modalCloseBtn: document.getElementById('modalCloseBtn'),
         modalRestoreBtn: document.getElementById('modalRestoreBtn'),
-        modalCopyBtn: document.getElementById('modalCopyBtn')
+        modalCopyBtn: document.getElementById('modalCopyBtn'),
+        modalDeleteBtn: document.getElementById('modalDeleteBtn')
     };
 
     // --- Core Calculations Engine ---
@@ -797,6 +798,14 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(`Сделка ${item.ticker} сохранена в историю!`);
     }
 
+    function deleteTradeFromHistory(id) {
+        state.history = state.history.filter(item => item.id !== id);
+        localStorage.setItem('trading_rr_history', JSON.stringify(state.history));
+        renderHistory();
+        closeTradeModal();
+        showToast('Сделка удалена из истории');
+    }
+
     function renderHistory() {
         dom.historyListContainer.innerHTML = '';
 
@@ -816,12 +825,30 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="history-item-header">
                     <span class="${isLong ? 'green' : 'red'}">${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)</span>
-                    <span class="history-time">${item.timestamp}</span>
+                    <div class="history-header-actions">
+                        <span class="history-time">${item.timestamp}</span>
+                        <button class="history-delete-btn" title="Удалить сделку">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div>${item.mode === 'multi' ? 'Ср. Entry' : 'Entry'}: <b>$${formatPrice(item.entry)}</b> | SL: <b>$${formatPrice(item.sl)}</b></div>
                 <div style="color: var(--text-dim);">Риск: ${formatUsdt(item.riskUsdt)} | Позиция: ${formatUsdt(posVal)}</div>
             `;
 
+            // Delete button
+            const delBtn = card.querySelector('.history-delete-btn');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteTradeFromHistory(item.id);
+                });
+            }
+
+            // Card click opens modal
             card.addEventListener('click', () => {
                 openTradeModal(item);
             });
@@ -836,8 +863,23 @@ document.addEventListener('DOMContentLoaded', () => {
         activeModalItem = item;
         const isLong = item.direction === 'long';
         const tickerName = item.ticker || 'BTC/USDT';
-        const lev = item.leverage || item.lev || 10;
-        const posVal = item.posValueUsdt || item.posUsdt || 0;
+        const entry = parseFloat(item.entry) || 0;
+        const sl = parseFloat(item.sl) || 0;
+        const lev = parseInt(item.leverage || item.lev) || 10;
+        const riskUsdt = parseFloat(item.riskUsdt) || 0;
+
+        const stopDistanceAbs = Math.abs(entry - sl);
+        const stopDistancePct = item.stopDistancePct || (entry > 0 ? (stopDistanceAbs / entry) * 100 : 0);
+
+        const posVal = parseFloat(item.posValueUsdt || item.posUsdt) || (stopDistancePct > 0 ? riskUsdt / (stopDistancePct / 100) : 0);
+        const posCoins = parseFloat(item.posCoins) || (entry > 0 ? posVal / entry : 0);
+        const marginUsdt = parseFloat(item.marginUsdt) || (lev > 0 ? posVal / lev : 0);
+
+        const cap = parseFloat(item.capital || item.cap) || (item.riskPercent ? (riskUsdt / (item.riskPercent / 100)) : (riskUsdt * 100));
+        const riskPct = item.riskPercent || item.riskPct || (cap > 0 ? (riskUsdt / cap) * 100 : 1.0);
+
+        const mmr = 0.004;
+        const liqPrice = item.liqPrice || (isLong ? entry * (1 - (1 / lev) + mmr) : entry * (1 + (1 / lev) - mmr));
 
         dom.modalTitle.textContent = `${isLong ? '🟢 LONG' : '🔴 SHORT'} ${tickerName} (${lev}x)`;
         dom.modalTitle.className = isLong ? 'green' : 'red';
@@ -847,19 +889,19 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-grid-stats">
                 <div class="modal-stat-box">
                     <span class="title">Капитал</span>
-                    <span class="value">$${(item.capital || item.cap || 0).toLocaleString()}</span>
+                    <span class="value">$${cap.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Сумма Риска (SL)</span>
-                    <span class="value red">${formatUsdt(item.riskUsdt)} (${item.riskPercent || item.riskPct}%)</span>
+                    <span class="value red">${formatUsdt(riskUsdt)} (${riskPct.toFixed(2)}%)</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">${item.mode === 'multi' ? 'Ср. Цена Входа' : 'Цена Входа'}</span>
-                    <span class="value accent">$${formatPrice(item.entry)}</span>
+                    <span class="value accent">$${formatPrice(entry)}</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Стоп-лосс (SL)</span>
-                    <span class="value red">$${formatPrice(item.sl)} (-${(item.stopDistancePct || 0).toFixed(2)}%)</span>
+                    <span class="value red">$${formatPrice(sl)} (-${stopDistancePct.toFixed(2)}%)</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Объём позиции</span>
@@ -867,15 +909,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Маржа</span>
-                    <span class="value">${formatUsdt(item.marginUsdt)}</span>
+                    <span class="value">${formatUsdt(marginUsdt)}</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Монеты</span>
-                    <span class="value">${formatCoins(item.posCoins)} Qty</span>
+                    <span class="value">${formatCoins(posCoins)} Qty</span>
                 </div>
                 <div class="modal-stat-box">
                     <span class="title">Ликвидация</span>
-                    <span class="value warning">$${formatPrice(item.liqPrice)}</span>
+                    <span class="value warning">$${formatPrice(liqPrice)}</span>
                 </div>
             </div>
         `;
@@ -910,6 +952,25 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `</tbody></table></div>`;
         }
 
+        // Target R:R comparison table
+        let rrModes = item.rrModes;
+        if (!rrModes || rrModes.length === 0) {
+            const feeRate = (parseFloat(item.feePercent || 0.05)) / 100;
+            const presetRrs = [3, 5, 6, 10, parseFloat(item.customRr || 4)];
+            rrModes = presetRrs.map(r => {
+                const tpPrice = isLong ? entry + (r * stopDistanceAbs) : entry - (r * stopDistanceAbs);
+                const grossProfitUsdt = riskUsdt * r;
+                const entryFeeUsdt = posVal * feeRate;
+                const exitPosValueUsdt = posCoins * tpPrice;
+                const exitFeeUsdt = exitPosValueUsdt * feeRate;
+                const totalFeeUsdt = entryFeeUsdt + exitFeeUsdt;
+                const netProfitUsdt = Math.max(0, grossProfitUsdt - totalFeeUsdt);
+                const accountGrowthPct = cap > 0 ? (netProfitUsdt / cap) * 100 : 0;
+                const roePct = marginUsdt > 0 ? (netProfitUsdt / marginUsdt) * 100 : 0;
+                return { rr: r, tpPrice, grossProfitUsdt, totalFeeUsdt, netProfitUsdt, accountGrowthPct, roePct };
+            });
+        }
+
         html += `
             <div style="margin-top: 6px;">
                 <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Целевые уровни Risk : Reward</h4>
@@ -926,19 +987,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tbody>
         `;
 
-        if (item.rrModes && item.rrModes.length > 0) {
-            item.rrModes.forEach(m => {
-                html += `
-                    <tr>
-                        <td><b class="green">1 : ${m.rr}</b></td>
-                        <td class="accent"><b>$${formatPrice(m.tpPrice)}</b></td>
-                        <td class="green"><b>${formatUsdt(m.netProfitUsdt)}</b></td>
-                        <td class="green">+${(m.accountGrowthPct || 0).toFixed(2)}%</td>
-                        <td>+${(m.roePct || 0).toFixed(1)}%</td>
-                    </tr>
-                `;
-            });
-        }
+        rrModes.forEach(m => {
+            html += `
+                <tr>
+                    <td><b class="green">1 : ${m.rr}</b></td>
+                    <td class="accent"><b>$${formatPrice(m.tpPrice)}</b></td>
+                    <td class="green"><b>${formatUsdt(m.netProfitUsdt)}</b></td>
+                    <td class="green">+${(m.accountGrowthPct || 0).toFixed(2)}%</td>
+                    <td>+${(m.roePct || 0).toFixed(1)}%</td>
+                </tr>
+            `;
+        });
 
         html += `</tbody></table></div>`;
 
@@ -1226,6 +1285,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 navigator.clipboard.writeText(text).then(() => {
                     showToast('Сводка сделки скопирована!');
                 });
+            }
+        });
+
+        dom.modalDeleteBtn.addEventListener('click', () => {
+            if (activeModalItem) {
+                deleteTradeFromHistory(activeModalItem.id);
             }
         });
 

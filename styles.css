@@ -1076,6 +1076,31 @@ body {
     color: var(--text-dim);
 }
 
+.history-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.history-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    line-height: 1;
+}
+
+.history-delete-btn:hover {
+    color: var(--color-short);
+    background: rgba(255, 59, 92, 0.15);
+}
+
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;
