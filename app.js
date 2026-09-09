@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
     const savedCapital = localStorage.getItem('trading_capital');
-    let initialCapital = 10000;
+    let initialCapital = 500;
     if (savedCapital !== null && savedCapital !== '') {
         const parsedCap = parseFloat(savedCapital);
         if (!isNaN(parsedCap) && parsedCap > 0) {
@@ -1261,8 +1261,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.resetBtn.addEventListener('click', () => {
             state.ticker = 'BTC';
-            state.capital = 10000;
-            localStorage.setItem('trading_capital', 10000);
+            state.capital = 500;
+            localStorage.setItem('trading_capital', 500);
             state.riskPercent = 1.0;
             state.entryPrice = 65000;
             state.stopLossPrice = 64000;
@@ -1270,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.entryMode = 'single';
             dom.tickerInput.value = 'BTC';
             dom.entryModeSingle.click();
-            dom.capitalInput.value = 10000;
+            dom.capitalInput.value = 500;
             dom.riskPercentInput.value = 1.0;
             dom.riskSlider.value = 1.0;
             dom.entryPriceInput.value = 65000;
