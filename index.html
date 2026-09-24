@@ -470,16 +470,36 @@
             </div>
 
             <div class="modal-footer">
-                <button id="modalRestoreBtn" class="btn-primary">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                        <path d="M3 3v5h5"/>
-                    </svg>
-                    Загрузить в калькулятор
-                </button>
-                <button id="modalCopyBtn" class="btn-secondary">Скопировать сводку</button>
-                <button id="modalDeleteBtn" class="btn-secondary danger-text">Удалить сделку</button>
-                <button id="modalCloseBtn" class="btn-secondary">Закрыть</button>
+                <div id="modalViewActions" style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%; justify-content: flex-end;">
+                    <button id="modalRestoreBtn" class="btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                        Загрузить в калькулятор
+                    </button>
+                    <button id="modalEditBtn" class="btn-secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        Редактировать
+                    </button>
+                    <button id="modalCopyBtn" class="btn-secondary">Скопировать сводку</button>
+                    <button id="modalDeleteBtn" class="btn-secondary danger-text">Удалить сделку</button>
+                    <button id="modalCloseBtn" class="btn-secondary">Закрыть</button>
+                </div>
+                <div id="modalEditActions" style="display: none; gap: 8px; flex-wrap: wrap; width: 100%; justify-content: flex-end;">
+                    <button id="modalSaveEditBtn" class="btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/>
+                            <polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        Сохранить изменения
+                    </button>
+                    <button id="modalCancelEditBtn" class="btn-secondary">Отмена</button>
+                </div>
             </div>
         </div>
     </div>

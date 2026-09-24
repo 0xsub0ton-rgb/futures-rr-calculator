@@ -122,39 +122,44 @@ document.addEventListener('DOMContentLoaded', () => {
         modalCloseBtn: document.getElementById('modalCloseBtn'),
         modalRestoreBtn: document.getElementById('modalRestoreBtn'),
         modalCopyBtn: document.getElementById('modalCopyBtn'),
-        modalDeleteBtn: document.getElementById('modalDeleteBtn')
+        modalDeleteBtn: document.getElementById('modalDeleteBtn'),
+        modalViewActions: document.getElementById('modalViewActions'),
+        modalEditActions: document.getElementById('modalEditActions'),
+        modalEditBtn: document.getElementById('modalEditBtn'),
+        modalSaveEditBtn: document.getElementById('modalSaveEditBtn'),
+        modalCancelEditBtn: document.getElementById('modalCancelEditBtn')
     };
 
     // --- Core Calculations Engine ---
 
-    function calculateTrade() {
-        const isLong = state.direction === 'long';
-        const isMulti = state.entryMode === 'multi';
-        const sl = parseFloat(state.stopLossPrice) || 0;
-        const cap = parseFloat(state.capital) || 0;
-        const riskPct = parseFloat(state.riskPercent) || 0;
-        const lev = parseInt(state.leverage) || 1;
-        const feeRate = (parseFloat(state.feePercent) || 0) / 100;
+    function computeTradeSnapshot(params) {
+        const isLong = params.direction === 'long';
+        const isMulti = params.mode === 'multi';
+        const sl = parseFloat(params.sl) || 0;
+        const cap = parseFloat(params.capital) || 0;
+        const riskPct = parseFloat(params.riskPercent) || 0;
+        const lev = parseInt(params.leverage) || 1;
+        const feeRate = (parseFloat(params.feePercent) || 0.05) / 100;
         const riskUsdt = cap * (riskPct / 100);
 
-        let entry = parseFloat(state.entryPrice) || 0;
+        let entry = parseFloat(params.entry) || 0;
         let isInvalid = false;
         let multiBreakdown = [];
         let totalAllocWeight = 100;
 
-        if (isMulti) {
-            totalAllocWeight = state.multiOrders.reduce((sum, o) => sum + (o.weightPct || 0), 0);
+        if (isMulti && params.multiOrders && params.multiOrders.length > 0) {
+            totalAllocWeight = params.multiOrders.reduce((sum, o) => sum + (o.weightPct || 0), 0);
             
-            state.multiOrders.forEach(o => {
+            params.multiOrders.forEach(o => {
                 const p = parseFloat(o.price) || 0;
                 if (p <= 0 || sl <= 0) isInvalid = true;
                 else if (isLong && sl >= p) isInvalid = true;
                 else if (!isLong && sl <= p) isInvalid = true;
             });
 
-            if (!isInvalid && state.multiOrders.length > 0 && cap > 0 && riskPct > 0) {
+            if (!isInvalid && params.multiOrders.length > 0 && cap > 0 && riskPct > 0) {
                 let sumWeightedDistRatio = 0;
-                const activeOrders = state.multiOrders.filter(o => o.price > 0 && o.weightPct > 0);
+                const activeOrders = params.multiOrders.filter(o => o.price > 0 && o.weightPct > 0);
 
                 activeOrders.forEach(o => {
                     const wRatio = (o.weightPct / (totalAllocWeight || 100));
@@ -233,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             liqDistPct = ((liqPrice - entry) / (entry || 1)) * 100;
         }
 
-        const presetRrs = [3, 5, 6, 10, parseFloat(state.customRr) || 4];
+        const presetRrs = [3, 5, 6, 10, parseFloat(params.customRr) || 4];
         const rrModes = presetRrs.map(r => {
             let tpPrice = 0;
             if (isLong) {
@@ -249,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalFeeUsdt = entryFeeUsdt + exitFeeUsdt;
 
             const netProfitUsdt = Math.max(0, grossProfitUsdt - totalFeeUsdt);
-            const accountGrowthPct = (netProfitUsdt / cap) * 100;
+            const accountGrowthPct = (netProfitUsdt / (cap || 1)) * 100;
             const roePct = (netProfitUsdt / (marginUsdt || 1)) * 100;
 
             return {
@@ -284,6 +289,21 @@ document.addEventListener('DOMContentLoaded', () => {
             multiBreakdown,
             totalAllocWeight
         };
+    }
+
+    function calculateTrade() {
+        return computeTradeSnapshot({
+            direction: state.direction,
+            mode: state.entryMode,
+            entry: state.entryPrice,
+            sl: state.stopLossPrice,
+            capital: state.capital,
+            riskPercent: state.riskPercent,
+            leverage: state.leverage,
+            feePercent: state.feePercent,
+            customRr: state.customRr,
+            multiOrders: state.multiOrders
+        });
     }
 
     // --- Formatters ---
@@ -773,9 +793,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const now = new Date();
+        const dateShort = now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        const dateFull = now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
         const item = {
             id: Date.now(),
-            timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: `${dateShort} ${timeStr}`,
+            fullTimestamp: `Сохранено: ${dateFull} в ${timeStr}`,
             ticker: (state.ticker || 'BTC').trim().toUpperCase(),
             direction: state.direction,
             mode: state.entryMode,
@@ -868,8 +894,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Trade Pop-up Modal Controller ---
 
+    let modalEditDraft = null;
+
+    function setModalEditMode(isEditing) {
+        if (isEditing) {
+            dom.modalViewActions.style.display = 'none';
+            dom.modalEditActions.style.display = 'flex';
+        } else {
+            dom.modalViewActions.style.display = 'flex';
+            dom.modalEditActions.style.display = 'none';
+        }
+    }
+
     function openTradeModal(item) {
         activeModalItem = item;
+        setModalEditMode(false);
         const isLong = item.direction === 'long';
         const tickerName = item.ticker || 'BTC';
         const entry = parseFloat(item.entry) || 0;
@@ -892,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.modalTitle.textContent = `${isLong ? '🟢' : '🔴'} ${tickerName} (${lev}x)`;
         dom.modalTitle.className = isLong ? 'green' : 'red';
-        dom.modalTimestamp.textContent = `Сохранено в ${item.timestamp}`;
+        dom.modalTimestamp.textContent = item.fullTimestamp || `Сохранено: ${item.timestamp}`;
 
         let html = `
             <div class="modal-grid-stats">
@@ -1014,9 +1053,351 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.tradeModal.classList.remove('hidden');
     }
 
+    function startEditingModalTrade() {
+        if (!activeModalItem) return;
+
+        const entry = parseFloat(activeModalItem.entry) || 0;
+        const sl = parseFloat(activeModalItem.sl) || 0;
+        const cap = parseFloat(activeModalItem.capital || activeModalItem.cap) || 500;
+        const riskPct = parseFloat(activeModalItem.riskPercent || activeModalItem.riskPct) || 1.0;
+        const lev = parseInt(activeModalItem.leverage || activeModalItem.lev) || 10;
+
+        modalEditDraft = {
+            id: activeModalItem.id,
+            ticker: activeModalItem.ticker || 'BTC',
+            direction: activeModalItem.direction || 'long',
+            mode: activeModalItem.mode || 'single',
+            capital: cap,
+            riskPercent: riskPct,
+            entry: entry,
+            sl: sl,
+            leverage: lev,
+            feePercent: activeModalItem.feePercent || 0.05,
+            customRr: activeModalItem.customRr || 4.0,
+            multiOrders: activeModalItem.multiOrders ? JSON.parse(JSON.stringify(activeModalItem.multiOrders)) : []
+        };
+
+        setModalEditMode(true);
+        renderModalEditView();
+    }
+
+    function renderModalEditView() {
+        const d = modalEditDraft;
+        const calc = computeTradeSnapshot(d);
+        const isLong = d.direction === 'long';
+
+        dom.modalTitle.textContent = `${isLong ? '🟢' : '🔴'} ${(d.ticker || 'BTC').toUpperCase()} (${d.leverage}x)`;
+        dom.modalTitle.className = isLong ? 'green' : 'red';
+
+        let html = `
+            <div class="modal-edit-box">
+                <div class="modal-edit-header">
+                    <span>✏️ Редактирование сделки</span>
+                    <span id="modalEditWarning" class="modal-edit-error ${calc.isInvalid ? 'visible' : ''}">
+                        ${calc.isInvalid ? (isLong ? '⚠️ Для LONG стоп-лосс должен быть ниже входа!' : '⚠️ Для SHORT стоп-лосс должен быть выше входа!') : ''}
+                    </span>
+                </div>
+                <div class="modal-edit-grid">
+                    <div class="modal-edit-field">
+                        <label>Тикер</label>
+                        <input type="text" id="editModalTicker" value="${d.ticker}" placeholder="BTC" style="text-transform: uppercase;">
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>Направление</label>
+                        <div class="modal-dir-switch">
+                            <button type="button" id="editModalDirLong" class="modal-dir-btn long ${isLong ? 'active' : ''}">LONG</button>
+                            <button type="button" id="editModalDirShort" class="modal-dir-btn short ${!isLong ? 'active' : ''}">SHORT</button>
+                        </div>
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>Капитал ($)</label>
+                        <input type="number" id="editModalCap" value="${d.capital}" step="10" min="1">
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>Риск (%)</label>
+                        <input type="number" id="editModalRiskPct" value="${d.riskPercent}" step="0.1" min="0.01">
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>${d.mode === 'multi' ? 'Ср. вход ($)' : 'Цена входа ($)'}</label>
+                        <input type="number" id="editModalEntry" value="${d.entry}" step="any">
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>Стоп-лосс ($)</label>
+                        <input type="number" id="editModalSl" value="${d.sl}" step="any">
+                    </div>
+                    <div class="modal-edit-field">
+                        <label>Плечо (x)</label>
+                        <input type="number" id="editModalLev" value="${d.leverage}" min="1" max="125">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-grid-stats" style="margin-top: 6px;">
+                <div class="modal-stat-box">
+                    <span class="title">Капитал</span>
+                    <span class="value">$${calc.cap.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Сумма Риска (SL)</span>
+                    <span class="value red">${formatUsdt(calc.riskUsdt)} (${calc.riskPct.toFixed(2)}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Цена Входа</span>
+                    <span class="value accent">$${formatPrice(calc.entry)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Стоп-лосс (SL)</span>
+                    <span class="value red">$${formatPrice(calc.sl)} (-${calc.stopDistancePct.toFixed(2)}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Объём позиции</span>
+                    <span class="value accent">${formatUsdt(calc.posValueUsdt)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Маржа</span>
+                    <span class="value">${formatUsdt(calc.marginUsdt)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Монеты</span>
+                    <span class="value">${formatCoins(calc.posCoins)} Qty</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Ликвидация</span>
+                    <span class="value warning">$${formatPrice(calc.liqPrice)}</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 6px;">
+                <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Предпросмотр Целевых Уровней R:R</h4>
+                <table class="modal-rr-table">
+                    <thead>
+                        <tr>
+                            <th>Соотношение</th>
+                            <th>Целевая цена (TP)</th>
+                            <th>Чистая прибыль ($)</th>
+                            <th>Прирост депозита</th>
+                            <th>ROE %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        calc.rrModes.forEach(m => {
+            html += `
+                <tr>
+                    <td><b class="green">1 : ${m.rr}</b></td>
+                    <td class="accent"><b>$${formatPrice(m.tpPrice)}</b></td>
+                    <td class="green"><b>${formatUsdt(m.netProfitUsdt)}</b></td>
+                    <td class="green">+${m.accountGrowthPct.toFixed(2)}%</td>
+                    <td>+${m.roePct.toFixed(1)}%</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+
+        dom.modalBodyContent.innerHTML = html;
+
+        // Wire inputs inside modal
+        const tickerInp = document.getElementById('editModalTicker');
+        const capInp = document.getElementById('editModalCap');
+        const riskInp = document.getElementById('editModalRiskPct');
+        const entryInp = document.getElementById('editModalEntry');
+        const slInp = document.getElementById('editModalSl');
+        const levInp = document.getElementById('editModalLev');
+        const longBtn = document.getElementById('editModalDirLong');
+        const shortBtn = document.getElementById('editModalDirShort');
+
+        if (tickerInp) {
+            tickerInp.addEventListener('input', (e) => {
+                modalEditDraft.ticker = e.target.value;
+                dom.modalTitle.textContent = `${modalEditDraft.direction === 'long' ? '🟢' : '🔴'} ${(modalEditDraft.ticker || 'BTC').toUpperCase()} (${modalEditDraft.leverage}x)`;
+            });
+        }
+
+        if (longBtn) {
+            longBtn.addEventListener('click', () => {
+                modalEditDraft.direction = 'long';
+                renderModalEditView();
+            });
+        }
+
+        if (shortBtn) {
+            shortBtn.addEventListener('click', () => {
+                modalEditDraft.direction = 'short';
+                renderModalEditView();
+            });
+        }
+
+        if (capInp) {
+            capInp.addEventListener('input', (e) => {
+                modalEditDraft.capital = parseFloat(e.target.value) || 0;
+                renderModalEditPreview();
+            });
+        }
+
+        if (riskInp) {
+            riskInp.addEventListener('input', (e) => {
+                modalEditDraft.riskPercent = parseFloat(e.target.value) || 0;
+                renderModalEditPreview();
+            });
+        }
+
+        if (entryInp) {
+            entryInp.addEventListener('input', (e) => {
+                modalEditDraft.entry = parseFloat(e.target.value) || 0;
+                renderModalEditPreview();
+            });
+        }
+
+        if (slInp) {
+            slInp.addEventListener('input', (e) => {
+                modalEditDraft.sl = parseFloat(e.target.value) || 0;
+                renderModalEditPreview();
+            });
+        }
+
+        if (levInp) {
+            levInp.addEventListener('input', (e) => {
+                modalEditDraft.leverage = parseInt(e.target.value) || 1;
+                dom.modalTitle.textContent = `${modalEditDraft.direction === 'long' ? '🟢' : '🔴'} ${(modalEditDraft.ticker || 'BTC').toUpperCase()} (${modalEditDraft.leverage}x)`;
+                renderModalEditPreview();
+            });
+        }
+    }
+
+    function renderModalEditPreview() {
+        const d = modalEditDraft;
+        const calc = computeTradeSnapshot(d);
+        const warning = document.getElementById('modalEditWarning');
+
+        if (warning) {
+            if (calc.isInvalid) {
+                warning.classList.add('visible');
+                warning.textContent = d.direction === 'long' ? '⚠️ Для LONG стоп-лосс должен быть ниже входа!' : '⚠️ Для SHORT стоп-лосс должен быть выше входа!';
+            } else {
+                warning.classList.remove('visible');
+                warning.textContent = '';
+            }
+        }
+
+        const statsBox = dom.modalBodyContent.querySelector('.modal-grid-stats');
+        if (statsBox) {
+            statsBox.innerHTML = `
+                <div class="modal-stat-box">
+                    <span class="title">Капитал</span>
+                    <span class="value">$${calc.cap.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Сумма Риска (SL)</span>
+                    <span class="value red">${formatUsdt(calc.riskUsdt)} (${calc.riskPct.toFixed(2)}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Цена Входа</span>
+                    <span class="value accent">$${formatPrice(calc.entry)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Стоп-лосс (SL)</span>
+                    <span class="value red">$${formatPrice(calc.sl)} (-${calc.stopDistancePct.toFixed(2)}%)</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Объём позиции</span>
+                    <span class="value accent">${formatUsdt(calc.posValueUsdt)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Маржа</span>
+                    <span class="value">${formatUsdt(calc.marginUsdt)}</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Монеты</span>
+                    <span class="value">${formatCoins(calc.posCoins)} Qty</span>
+                </div>
+                <div class="modal-stat-box">
+                    <span class="title">Ликвидация</span>
+                    <span class="value warning">$${formatPrice(calc.liqPrice)}</span>
+                </div>
+            `;
+        }
+
+        const tableTbody = dom.modalBodyContent.querySelector('.modal-rr-table tbody');
+        if (tableTbody) {
+            let rowsHtml = '';
+            calc.rrModes.forEach(m => {
+                rowsHtml += `
+                    <tr>
+                        <td><b class="green">1 : ${m.rr}</b></td>
+                        <td class="accent"><b>$${formatPrice(m.tpPrice)}</b></td>
+                        <td class="green"><b>${formatUsdt(m.netProfitUsdt)}</b></td>
+                        <td class="green">+${m.accountGrowthPct.toFixed(2)}%</td>
+                        <td>+${m.roePct.toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+            tableTbody.innerHTML = rowsHtml;
+        }
+    }
+
+    function saveModalTradeEdits() {
+        if (!activeModalItem || !modalEditDraft) return;
+
+        const calc = computeTradeSnapshot(modalEditDraft);
+        if (calc.isInvalid) {
+            showToast('Укажите корректные параметры сделки!');
+            return;
+        }
+
+        const now = new Date();
+        const dateShort = now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        const dateFull = now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+        Object.assign(activeModalItem, {
+            ticker: (modalEditDraft.ticker || 'BTC').trim().toUpperCase(),
+            direction: modalEditDraft.direction,
+            capital: calc.cap,
+            riskPercent: calc.riskPct,
+            riskUsdt: calc.riskUsdt,
+            entry: calc.entry,
+            sl: calc.sl,
+            stopDistancePct: calc.stopDistancePct,
+            leverage: calc.lev,
+            marginUsdt: calc.marginUsdt,
+            posValueUsdt: calc.posValueUsdt,
+            posCoins: calc.posCoins,
+            liqPrice: calc.liqPrice,
+            liqDistPct: calc.liqDistPct,
+            rrModes: calc.rrModes,
+            timestamp: `${dateShort} ${timeStr}`,
+            fullTimestamp: `Изменено: ${dateFull} в ${timeStr}`
+        });
+
+        const histIndex = state.history.findIndex(h => h.id === activeModalItem.id);
+        if (histIndex !== -1) {
+            state.history[histIndex] = activeModalItem;
+        }
+        localStorage.setItem('trading_rr_history', JSON.stringify(state.history));
+
+        renderHistory();
+        setModalEditMode(false);
+        openTradeModal(activeModalItem);
+        showToast(`Сделка ${activeModalItem.ticker} обновлена!`);
+    }
+
+    function cancelModalTradeEdits() {
+        modalEditDraft = null;
+        setModalEditMode(false);
+        if (activeModalItem) {
+            openTradeModal(activeModalItem);
+        } else {
+            closeTradeModal();
+        }
+    }
+
     function closeTradeModal() {
+        setModalEditMode(false);
         dom.tradeModal.classList.add('hidden');
         activeModalItem = null;
+        modalEditDraft = null;
     }
 
     function restoreTradeToCalculator(item) {
@@ -1304,6 +1685,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeModalItem) {
                 deleteTradeFromHistory(activeModalItem.id);
             }
+        });
+
+        dom.modalEditBtn.addEventListener('click', () => {
+            if (activeModalItem) {
+                startEditingModalTrade();
+            }
+        });
+
+        dom.modalSaveEditBtn.addEventListener('click', () => {
+            saveModalTradeEdits();
+        });
+
+        dom.modalCancelEditBtn.addEventListener('click', () => {
+            cancelModalTradeEdits();
         });
 
         window.addEventListener('resize', () => {

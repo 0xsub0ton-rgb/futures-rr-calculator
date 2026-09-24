@@ -1251,6 +1251,106 @@ body {
     flex-wrap: wrap;
 }
 
+/* Modal Edit Mode Styles */
+.modal-edit-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.modal-edit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-long);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.modal-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.modal-edit-field label {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.modal-edit-field input {
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 10px;
+    outline: none;
+    transition: var(--transition-fast);
+}
+
+.modal-edit-field input:focus {
+    border-color: var(--color-long);
+}
+
+.modal-dir-switch {
+    display: flex;
+    gap: 6px;
+}
+
+.modal-dir-btn {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.modal-dir-btn.active.long {
+    background: rgba(34, 238, 119, 0.15);
+    border-color: var(--color-long);
+    color: var(--color-long);
+}
+
+.modal-dir-btn.active.short {
+    background: rgba(255, 59, 92, 0.15);
+    border-color: var(--color-short);
+    color: var(--color-short);
+}
+
+.modal-edit-error {
+    color: var(--color-short);
+    font-size: 10px;
+    font-weight: 700;
+    display: none;
+}
+
+.modal-edit-error.visible {
+    display: block;
+}
+
 /* ==========================================================================
    MOBILE & TABLET RESPONSIVE ADAPTATION
    ========================================================================== */
