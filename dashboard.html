@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RRCALC STATS — Trading Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* BPSCAN Terminal Aesthetic CSS */
+    :root {
+      --bg-color: #060806;
+      --panel-bg: #0A0D0A;
+      --card-bg: #0E120E;
+      --accent-green: #22EE77;
+      --accent-red: #FF3B5C;
+      --accent-gray: #6A856A;
+      --accent-yellow: #E6B800;
+      --text-main: #FFFFFF;
+      --text-dim: #8BA88B;
+      --border-color: #1A241A;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-display: 'Space Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .app-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+
+    .brand h1 {
+      font-family: var(--font-display);
+      font-size: 24px;
+      color: var(--accent-green);
+      letter-spacing: -1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .brand span {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    .header-links a {
+      color: var(--accent-green);
+      text-decoration: none;
+      font-size: 13px;
+      border: 1px solid var(--accent-green);
+      padding: 6px 12px;
+      transition: all 0.2s;
+    }
+
+    .header-links a:hover {
+      background-color: rgba(34, 238, 119, 0.1);
+    }
+
+    /* Tabs */
+    .view-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-dim);
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background-color: rgba(34, 238, 119, 0.05);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .tab-btn:hover:not(.active) {
+      background-color: var(--card-bg);
+      color: var(--text-main);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Layout & Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .section-card {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section-card h3 {
+      font-family: var(--font-display);
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .chart-container {
+      position: relative;
+      width: 100%;
+    }
+
+    /* Metric Cards */
+    .metric-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-card .metric-title {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .metric-card .metric-value {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .metric-card .metric-sub {
+      font-size: 11px;
+      color: var(--accent-gray);
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+    }
+
+    .controls-bar select, .controls-bar input {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .controls-bar select:focus, .controls-bar input:focus {
+      border-color: var(--accent-green);
+    }
+    
+    .controls-bar button.mode-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-dim);
+      padding: 8px 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .controls-bar button.mode-btn.active {
+      background-color: rgba(34, 238, 119, 0.05);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    /* Tables */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      color: var(--text-dim);
+      font-weight: normal;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    tbody tr:hover {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges & Colors */
+    .green { color: var(--accent-green); }
+    .red { color: var(--accent-red); }
+    .yellow { color: var(--accent-yellow); }
+    
+    .badge-win, .badge-loss, .badge-be {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      border-radius: 2px;
+    }
+    .badge-win { background-color: rgba(34, 238, 119, 0.1); color: var(--accent-green); border: 1px solid rgba(34, 238, 119, 0.3); }
+    .badge-loss { background-color: rgba(255, 59, 92, 0.1); color: var(--accent-red); border: 1px solid rgba(255, 59, 92, 0.3); }
+    .badge-be { background-color: rgba(106, 133, 106, 0.1); color: var(--accent-gray); border: 1px solid rgba(106, 133, 106, 0.3); }
+
+    /* Observations */
+    #monthly-obs-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .obs-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background-color: var(--card-bg);
+      border-left: 2px solid var(--border-color);
+    }
+    
+    .obs-item.positive { border-left-color: var(--accent-green); }
+    .obs-item.warning { border-left-color: var(--accent-red); }
+    .obs-item.info { border-left-color: var(--accent-yellow); }
+
+    .obs-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    
+    .obs-text {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .log-summary-bar {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border-color);
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-2col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 500px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <h1>RRCALC STATS</h1>
+        <span>+ COMPREHENSIVE TRADING ANALYTICS +</span>
+      </div>
+      <div class="header-links">
+        <a href="index.html">← РАСЧЁТ РИСКА</a>
+      </div>
+    </header>
+
+    <nav class="view-tabs">
+      <button class="tab-btn active" data-target="tab-overview">📊 ОБЗОР</button>
+      <button class="tab-btn" data-target="tab-monthly">📅 МЕСЯЦ</button>
+      <button class="tab-btn" data-target="tab-comparison">📈 СРАВНЕНИЕ</button>
+      <button class="tab-btn" data-target="tab-log">📋 ЖУРНАЛ</button>
+      <button class="tab-btn" data-target="tab-reports">📉 ОТЧЁТЫ</button>
+    </nav>
+
+    <main>
+      <!-- TAB 1: ОБЗОР -->
+      <div id="tab-overview" class="tab-pane active">
+        <section class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-title">Чистая Прибыль (Net P&L)</span>
+            <span class="metric-value" id="kpi-net-pnl">$0.00</span>
+            <span class="metric-sub" id="kpi-net-pnl-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Винрейт (Win Rate)</span>
+            <span class="metric-value" id="kpi-winrate">0.0%</span>
+            <span class="metric-sub" id="kpi-winrate-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Профит Фактор (Profit Factor)</span>
+            <span class="metric-value" id="kpi-pf">0.00</span>
+            <span class="metric-sub" id="kpi-pf-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Ожидание (Expectancy)</span>
+            <span class="metric-value" id="kpi-expectancy">$0.00</span>
+            <span class="metric-sub" id="kpi-expectancy-sub">-</span>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-title">Средний Win</span>
+            <span class="metric-value green" id="kpi-avg-win">$0.00</span>
+            <span class="metric-sub" id="kpi-avg-win-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Средний Loss</span>
+            <span class="metric-value red" id="kpi-avg-loss">$0.00</span>
+            <span class="metric-sub" id="kpi-avg-loss-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">W/L Соотношение</span>
+            <span class="metric-value" id="kpi-wl-ratio">0.00</span>
+            <span class="metric-sub" id="kpi-wl-ratio-sub">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Макс. Просадка (Max DD)</span>
+            <span class="metric-value red" id="kpi-drawdown">$0.00</span>
+            <span class="metric-sub" id="kpi-drawdown-sub">-</span>
+          </div>
+        </section>
+
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>КРИВАЯ ДОХОДНОСТИ</h3>
+            <div class="chart-container" style="height: 280px;"><canvas id="chart-equity"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>РАСПРЕДЕЛЕНИЕ РЕЗУЛЬТАТОВ</h3>
+            <div class="chart-container" style="height: 280px;"><canvas id="chart-distribution"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>R:R ВЫИГРЫШНЫХ СДЕЛОК</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-rr"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>P&L ПО АКТИВАМ</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-assets"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h3>ЕЖЕМЕСЯЧНЫЙ P&L</h3>
+          <div class="chart-container" style="height: 250px;"><canvas id="chart-monthly-pnl"></canvas></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: МЕСЯЦ -->
+      <div id="tab-monthly" class="tab-pane">
+        <div class="controls-bar">
+          <label>Выберите месяц:</label>
+          <select id="month-selector"></select>
+        </div>
+
+        <section class="metrics-grid" id="monthly-kpis"></section>
+
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>КРИВАЯ ДОХОДНОСТИ</h3>
+            <div class="chart-container" style="height: 280px;"><canvas id="chart-monthly-equity"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>РАСПРЕДЕЛЕНИЕ</h3>
+            <div class="chart-container" style="height: 280px;"><canvas id="chart-monthly-dist"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>R:R ВЫИГРЫШНЫХ СДЕЛОК</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-monthly-rr"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>P&L ПО АКТИВАМ</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-monthly-assets"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h3>ЖУРНАЛ СДЕЛОК</h3>
+          <div class="table-responsive">
+            <table id="monthly-trade-table">
+              <thead><tr><th>#</th><th>Дата</th><th>Тикер</th><th>Напр.</th><th>Риск</th><th>Результат</th><th>P&L</th><th>R:R</th><th>Сетап</th></tr></thead>
+              <tbody id="monthly-trade-tbody"></tbody>
+              <tfoot id="monthly-trade-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-card" id="monthly-observations">
+          <h3>📝 НАБЛЮДЕНИЯ</h3>
+          <div id="monthly-obs-content"></div>
+        </div>
+      </div>
+
+      <!-- TAB 3: СРАВНЕНИЕ -->
+      <div id="tab-comparison" class="tab-pane">
+        <div class="section-card">
+          <h3>СРАВНЕНИЕ МЕСЯЦЕВ</h3>
+          <div class="chart-container" style="height: 300px;"><canvas id="chart-comparison"></canvas></div>
+        </div>
+
+        <div class="section-card">
+          <h3>ТАБЛИЦА СРАВНЕНИЯ</h3>
+          <div class="table-responsive">
+            <table id="comparison-table">
+              <thead><tr id="comparison-thead-tr"><th>Метрика</th></tr></thead>
+              <tbody id="comparison-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>P&L ПО ДНЯМ НЕДЕЛИ</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-day-of-week"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>P&L ПО РАЗМЕРУ РИСКА</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-risk-perf"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: ЖУРНАЛ -->
+      <div id="tab-log" class="tab-pane">
+        <div class="controls-bar">
+          <input type="text" id="log-search" placeholder="Поиск по тикеру...">
+          <select id="log-filter-result">
+            <option value="all">Все</option>
+            <option value="win">Win</option>
+            <option value="loss">Loss</option>
+            <option value="be">BE</option>
+          </select>
+          <select id="log-filter-month">
+            <option value="all">Все месяцы</option>
+          </select>
+        </div>
+
+        <div class="section-card">
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th>#</th><th>Дата</th><th>Тикер</th><th>Напр.</th><th>Риск</th><th>Результат</th><th>P&L</th><th>R:R</th><th>Сетап</th><th>Таймфрейм</th></tr></thead>
+              <tbody id="full-log-tbody"></tbody>
+            </table>
+          </div>
+          <div id="log-summary" class="log-summary-bar"></div>
+        </div>
+      </div>
+
+      <!-- TAB 5: ОТЧЁТЫ -->
+      <div id="tab-reports" class="tab-pane">
+        <div class="controls-bar">
+          <button class="mode-btn active" data-report="quarterly">Квартальный отчёт</button>
+          <button class="mode-btn" data-report="yearly">Годовой отчёт</button>
+        </div>
+
+        <div id="report-quarterly">
+          <div class="controls-bar" style="border: none; padding: 0; margin-bottom: 20px; background: transparent;">
+            <select id="quarter-selector"></select>
+          </div>
+          <section class="metrics-grid" id="quarterly-kpis"></section>
+          <div class="section-card">
+            <h3>КРИВАЯ ДОХОДНОСТИ (КВАРТАЛ)</h3>
+            <div class="chart-container" style="height: 300px;"><canvas id="chart-quarterly-equity"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>МЕСЯЦЫ В КВАРТАЛЕ</h3>
+            <div class="table-responsive">
+              <table id="quarterly-months-table">
+                <thead><tr><th>Месяц</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Профит Фактор</th></tr></thead>
+                <tbody id="quarterly-months-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="report-yearly" style="display:none;">
+          <div class="controls-bar" style="border: none; padding: 0; margin-bottom: 20px; background: transparent;">
+            <select id="year-selector"></select>
+          </div>
+          <section class="metrics-grid" id="yearly-kpis"></section>
+          <div class="section-card">
+            <h3>КРИВАЯ ДОХОДНОСТИ (ГОД)</h3>
+            <div class="chart-container" style="height: 300px;"><canvas id="chart-yearly-equity"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>КВАРТАЛЫ В ГОДУ</h3>
+            <div class="table-responsive">
+              <table id="yearly-quarters-table">
+                <thead><tr><th>Квартал</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Профит Фактор</th></tr></thead>
+                <tbody id="yearly-quarters-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app-dashboard.js"></script>
+</body>
+</html>
