@@ -129,12 +129,48 @@ window.TradingStats = {
     const maxDrawdownPct = peakCumPnl > 0 ? (maxDrawdown / peakCumPnl) * 100 : 0;
     const returnOnRisk = totalRiskDeployed > 0 ? netPnl / totalRiskDeployed : 0;
 
+    // Advanced Risk-Adjusted Ratios (Sharpe, Sortino, Adjusted Sortino)
+    const pnls = trades.map(t => t.pnl);
+    const meanPnl = totalTrades > 0 ? netPnl / totalTrades : 0;
+    
+    // Sample variance & standard deviation
+    let variance = 0;
+    if (totalTrades > 1) {
+      variance = pnls.reduce((sum, p) => sum + Math.pow(p - meanPnl, 2), 0) / (totalTrades - 1);
+    }
+    const stdDev = Math.sqrt(variance);
+
+    // Downside deviation (only negative outcomes below target MAR = 0)
+    const downsideSqSum = pnls.reduce((sum, p) => p < 0 ? sum + Math.pow(p, 2) : sum, 0);
+    const downsideDev = totalTrades > 0 ? Math.sqrt(downsideSqSum / totalTrades) : 0;
+
+    // Upside potential (mean of positive outcomes above target MAR = 0)
+    const upsideSum = pnls.reduce((sum, p) => p > 0 ? sum + p : sum, 0);
+    const upsidePotential = totalTrades > 0 ? upsideSum / totalTrades : 0;
+
+    // Sharpe Ratio (annualized by sqrt(N) for the sample of trades)
+    // and trade-level Sharpe
+    const sharpeTrade = stdDev > 0 ? meanPnl / stdDev : 0;
+    const sharpeRatio = stdDev > 0 ? (meanPnl / stdDev) * Math.sqrt(totalTrades) : 0;
+
+    // Sortino Ratio (annualized by sqrt(N) and trade-level)
+    const sortinoTrade = downsideDev > 0 ? meanPnl / downsideDev : 0;
+    const sortinoRatio = downsideDev > 0 ? (meanPnl / downsideDev) * Math.sqrt(totalTrades) : 0;
+
+    // Adjusted Sortino Ratio (Upside Potential Ratio: Upside Potential / Downside Deviation)
+    // Directly measures upside reward delivered per unit of downside penalty
+    const adjustedSortino = downsideDev > 0 ? upsidePotential / downsideDev : 0;
+
     return {
       totalTrades, wins, losses, breakevens, winRate, winRateAll,
       grossProfit, grossLoss, netPnl, profitFactor, avgWin, avgLoss,
       avgWinLossRatio, avgRR, expectancyR, expectancyUsd,
       maxWinStreak, maxLossStreak, bestTrade, worstTrade,
-      maxDrawdown, maxDrawdownPct, totalRiskDeployed, returnOnRisk
+      maxDrawdown, maxDrawdownPct, totalRiskDeployed, returnOnRisk,
+      stdDev, downsideDev,
+      sharpeTrade, sharpeRatio,
+      sortinoTrade, sortinoRatio,
+      adjustedSortino
     };
   },
   

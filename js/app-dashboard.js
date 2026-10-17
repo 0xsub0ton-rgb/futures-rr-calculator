@@ -29,6 +29,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // KPI Cards Generator
   function createKPICards(stats, containerIdOrUpdateIds, options = {}) {
+    const sharpeText = stats.sharpeRatio != null ? stats.sharpeRatio.toFixed(2) : '0.00';
+    const sortinoText = stats.sortinoRatio != null ? stats.sortinoRatio.toFixed(2) : '0.00';
+    const adjSortinoText = stats.adjustedSortino != null ? stats.adjustedSortino.toFixed(2) : '0.00';
+    const stdDevText = stats.stdDev != null ? formatUsd(stats.stdDev).text : '$0.00';
+    const downsideDevText = stats.downsideDev != null ? formatUsd(stats.downsideDev).text : '$0.00';
+
     const data = [
       { label: 'Чистая Прибыль (Net P&L)', val: formatUsd(stats.netPnl), sub: stats.totalTrades + ' сделок' },
       { label: 'Винрейт (Win Rate)', val: { text: formatPct(stats.winRate), colorClass: stats.winRate > 50 ? 'green' : 'red' }, sub: 'Win/Loss/BE: ' + stats.wins + '/' + stats.losses + '/' + stats.breakevens },
@@ -37,7 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       { label: 'Средний Win', val: { text: formatUsd(stats.avgWin).text, colorClass: 'green' }, sub: 'Max: ' + (stats.bestTrade ? formatUsd(stats.bestTrade.pnl).text : '$0') },
       { label: 'Средний Loss', val: { text: formatUsd(stats.avgLoss).text, colorClass: 'red' }, sub: 'Min: ' + (stats.worstTrade ? formatUsd(stats.worstTrade.pnl).text : '$0') },
       { label: 'W/L Соотношение', val: { text: stats.avgWinLossRatio.toFixed(2), colorClass: stats.avgWinLossRatio >= 2 ? 'green' : '' }, sub: 'Целевое: > 2.0' },
-      { label: 'Макс. Просадка (Max DD)', val: { text: formatUsd(-stats.maxDrawdown).text, colorClass: 'red' }, sub: formatPct(stats.maxDrawdownPct) }
+      { label: 'Макс. Просадка (Max DD)', val: { text: formatUsd(-stats.maxDrawdown).text, colorClass: 'red' }, sub: formatPct(stats.maxDrawdownPct) },
+      { label: 'Коэф. Шарпа (Sharpe)', val: { text: sharpeText, colorClass: stats.sharpeRatio >= 1 ? 'green' : (stats.sharpeRatio > 0 ? 'yellow' : 'red') }, sub: `Trade: ${stats.sharpeTrade != null ? stats.sharpeTrade.toFixed(2) : '0.00'}` },
+      { label: 'Коэф. Сортино (Sortino)', val: { text: sortinoText, colorClass: stats.sortinoRatio >= 2 ? 'green' : (stats.sortinoRatio > 0 ? 'yellow' : 'red') }, sub: `Downside Dev: ${downsideDevText}` },
+      { label: 'Скорр. Сортино (Adj. Sortino / UPR)', val: { text: adjSortinoText, colorClass: stats.adjustedSortino >= 1.5 ? 'green' : (stats.adjustedSortino > 0 ? 'yellow' : 'red') }, sub: 'Upside / Downside' },
+      { label: 'Волатильность (Std Dev)', val: { text: stdDevText, colorClass: '' }, sub: 'Std Dev на сделку' }
     ];
 
     if (options.btcReturn != null && options.traderReturn != null) {
@@ -71,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.appendChild(div);
       });
     } else {
-      // Update by IDs
+      // Update Overview IDs
       const ids = [
         ['kpi-net-pnl', 'kpi-net-pnl-sub'],
         ['kpi-winrate', 'kpi-winrate-sub'],
@@ -80,11 +90,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['kpi-avg-win', 'kpi-avg-win-sub'],
         ['kpi-avg-loss', 'kpi-avg-loss-sub'],
         ['kpi-wl-ratio', 'kpi-wl-ratio-sub'],
-        ['kpi-drawdown', 'kpi-drawdown-sub']
+        ['kpi-drawdown', 'kpi-drawdown-sub'],
+        ['kpi-sharpe', 'kpi-sharpe-sub'],
+        ['kpi-sortino', 'kpi-sortino-sub'],
+        ['kpi-adj-sortino', 'kpi-adj-sortino-sub'],
+        ['kpi-std-dev', 'kpi-std-dev-sub']
       ];
-      data.slice(0, 8).forEach((item, i) => {
-        const valEl = document.getElementById(ids[i][0]);
-        const subEl = document.getElementById(ids[i][1]);
+      ids.forEach((idPair, i) => {
+        const item = data[i];
+        if (!item) return;
+        const valEl = document.getElementById(idPair[0]);
+        const subEl = document.getElementById(idPair[1]);
         if (valEl && subEl) {
           valEl.textContent = item.val.text;
           valEl.className = 'metric-value ' + item.val.colorClass;
@@ -330,7 +346,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         trades: s.totalTrades,
         traderReturn,
         btcReturn,
-        alpha
+        alpha,
+        sharpe: s.sharpeRatio,
+        sortino: s.sortinoRatio,
+        adjSortino: s.adjustedSortino
       };
     });
     
@@ -355,6 +374,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key: 'traderReturn', label: 'Доходность Трейдера (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v > 0 ? 'green' : (v < 0 ? 'red' : '')) : '' },
       { key: 'btcReturn', label: 'Бенчмарк BTC (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'yellow' : 'red') : '' },
       { key: 'alpha', label: 'Alpha (vs BTC)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'green' : 'red') : '' },
+      { key: 'sharpe', label: 'Коэффициент Шарпа', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 1 ? 'green' : (v > 0 ? 'yellow' : 'red') },
+      { key: 'sortino', label: 'Коэффициент Сортино', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 2 ? 'green' : (v > 0 ? 'yellow' : 'red') },
+      { key: 'adjSortino', label: 'Скорр. Сортино (UPR)', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 1.5 ? 'green' : (v > 0 ? 'yellow' : 'red') },
       { key: 'winRate', label: 'Win Rate', fmt: (v) => formatPct(v), colorFmt: (v) => v > 50 ? 'green' : 'red' },
       { key: 'profitFactor', label: 'Profit Factor', fmt: (v) => v.toFixed(2), colorFmt: (v) => v > 1.5 ? 'green' : (v < 1 ? 'red' : '') },
       { key: 'trades', label: 'Сделок', fmt: (v) => v, colorFmt: () => '' }
@@ -529,6 +551,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td class="${tReturn != null ? (tReturn >= 0 ? 'green' : 'red') : ''}">${tReturn != null ? (tReturn >= 0 ? '+' : '') + formatPct(tReturn) : '—'}</td>
         <td class="${bReturn != null ? (bReturn >= 0 ? 'yellow' : 'red') : ''}">${bReturn != null ? (bReturn >= 0 ? '+' : '') + formatPct(bReturn) : '—'}</td>
         <td class="${alpha != null ? (alpha >= 0 ? 'green' : 'red') : ''}">${alpha != null ? (alpha >= 0 ? '+' : '') + formatPct(alpha) : '—'}</td>
+        <td class="${s.sharpeRatio >= 1 ? 'green' : (s.sharpeRatio > 0 ? 'yellow' : 'red')}">${s.sharpeRatio != null ? s.sharpeRatio.toFixed(2) : '—'}</td>
+        <td class="${s.sortinoRatio >= 2 ? 'green' : (s.sortinoRatio > 0 ? 'yellow' : 'red')}">${s.sortinoRatio != null ? s.sortinoRatio.toFixed(2) : '—'}</td>
+        <td class="${s.adjustedSortino >= 1.5 ? 'green' : (s.adjustedSortino > 0 ? 'yellow' : 'red')}">${s.adjustedSortino != null ? s.adjustedSortino.toFixed(2) : '—'}</td>
         <td>${s.profitFactor.toFixed(2)}</td>
       `;
       tbody.appendChild(tr);
@@ -590,6 +615,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td class="${tReturn != null ? (tReturn >= 0 ? 'green' : 'red') : ''}">${tReturn != null ? (tReturn >= 0 ? '+' : '') + formatPct(tReturn) : '—'}</td>
         <td class="${bReturn != null ? (bReturn >= 0 ? 'yellow' : 'red') : ''}">${bReturn != null ? (bReturn >= 0 ? '+' : '') + formatPct(bReturn) : '—'}</td>
         <td class="${alpha != null ? (alpha >= 0 ? 'green' : 'red') : ''}">${alpha != null ? (alpha >= 0 ? '+' : '') + formatPct(alpha) : '—'}</td>
+        <td class="${s.sharpeRatio >= 1 ? 'green' : (s.sharpeRatio > 0 ? 'yellow' : 'red')}">${s.sharpeRatio != null ? s.sharpeRatio.toFixed(2) : '—'}</td>
+        <td class="${s.sortinoRatio >= 2 ? 'green' : (s.sortinoRatio > 0 ? 'yellow' : 'red')}">${s.sortinoRatio != null ? s.sortinoRatio.toFixed(2) : '—'}</td>
+        <td class="${s.adjustedSortino >= 1.5 ? 'green' : (s.adjustedSortino > 0 ? 'yellow' : 'red')}">${s.adjustedSortino != null ? s.adjustedSortino.toFixed(2) : '—'}</td>
         <td>${s.profitFactor.toFixed(2)}</td>
       `;
       tbody.appendChild(tr);

@@ -387,6 +387,29 @@
           </div>
         </section>
 
+        <section class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-title">Коэф. Шарпа (Sharpe)</span>
+            <span class="metric-value" id="kpi-sharpe">0.00</span>
+            <span class="metric-sub" id="kpi-sharpe-sub">Per Trade: 0.00</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Коэф. Сортино (Sortino)</span>
+            <span class="metric-value" id="kpi-sortino">0.00</span>
+            <span class="metric-sub" id="kpi-sortino-sub">Downside Dev: $0.00</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Скорр. Сортино (Adj. Sortino / UPR)</span>
+            <span class="metric-value" id="kpi-adj-sortino">0.00</span>
+            <span class="metric-sub" id="kpi-adj-sortino-sub">Upside / Downside</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Волатильность (Std Dev)</span>
+            <span class="metric-value" id="kpi-std-dev">$0.00</span>
+            <span class="metric-sub" id="kpi-std-dev-sub">Std Dev на сделку</span>
+          </div>
+        </section>
+
         <div class="grid-2col">
           <div class="section-card">
             <h3>КРИВАЯ ДОХОДНОСТИ</h3>
@@ -538,7 +561,7 @@
             <h3>МЕСЯЦЫ В КВАРТАЛЕ</h3>
             <div class="table-responsive">
               <table id="quarterly-months-table">
-                <thead><tr><th>Месяц</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Трейдер (%)</th><th>BTC (%)</th><th>Alpha (vs BTC)</th><th>Профит Фактор</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Трейдер (%)</th><th>BTC (%)</th><th>Alpha</th><th>Шарп (Sharpe)</th><th>Сортино (Sortino)</th><th>Скорр. Сортино</th><th>PF</th></tr></thead>
                 <tbody id="quarterly-months-tbody"></tbody>
               </table>
             </div>
@@ -558,7 +581,7 @@
             <h3>КВАРТАЛЫ В ГОДУ</h3>
             <div class="table-responsive">
               <table id="yearly-quarters-table">
-                <thead><tr><th>Квартал</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Трейдер (%)</th><th>BTC (%)</th><th>Alpha (vs BTC)</th><th>Профит Фактор</th></tr></thead>
+                <thead><tr><th>Квартал</th><th>Сделок</th><th>Винрейт</th><th>P&L</th><th>Трейдер (%)</th><th>BTC (%)</th><th>Alpha</th><th>Шарп (Sharpe)</th><th>Сортино (Sortino)</th><th>Скорр. Сортино</th><th>PF</th></tr></thead>
                 <tbody id="yearly-quarters-tbody"></tbody>
               </table>
             </div>
