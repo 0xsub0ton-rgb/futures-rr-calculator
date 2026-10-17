@@ -305,31 +305,63 @@ window.TradingCharts = {
       }
     };
 
+    const hasBtc = compData.some(d => d.btcReturn != null);
+    
+    const datasets = [
+      {
+        label: 'Net P&L ($)',
+        type: 'bar',
+        data: compData.map(d => d.netPnl),
+        backgroundColor: barColors,
+        yAxisID: 'yPnl',
+        borderRadius: 4
+      },
+      {
+        label: 'Win Rate (%)',
+        type: 'line',
+        data: compData.map(d => d.winRate),
+        borderColor: defaults.colors.yellow,
+        backgroundColor: defaults.colors.yellow,
+        yAxisID: 'yWinRate',
+        tension: 0.2,
+        borderWidth: 2,
+        pointRadius: 4
+      }
+    ];
+
+    if (hasBtc) {
+      datasets.push({
+        label: 'BTC Return (%)',
+        type: 'line',
+        data: compData.map(d => d.btcReturn != null ? d.btcReturn : null),
+        borderColor: '#F7931A', // Bitcoin Orange
+        backgroundColor: '#F7931A',
+        yAxisID: 'yWinRate',
+        borderDash: [5, 5],
+        tension: 0.2,
+        borderWidth: 2,
+        pointRadius: 4
+      });
+      if (compData.some(d => d.traderReturn != null)) {
+        datasets.push({
+          label: 'Трейдер (%)',
+          type: 'line',
+          data: compData.map(d => d.traderReturn != null ? d.traderReturn : null),
+          borderColor: defaults.colors.green,
+          backgroundColor: defaults.colors.green,
+          yAxisID: 'yWinRate',
+          tension: 0.2,
+          borderWidth: 2,
+          pointRadius: 4
+        });
+      }
+    }
+
     this._instances[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: compData.map(d => d.label),
-        datasets: [
-          {
-            label: 'Net P&L',
-            type: 'bar',
-            data: compData.map(d => d.netPnl),
-            backgroundColor: barColors,
-            yAxisID: 'yPnl',
-            borderRadius: 4
-          },
-          {
-            label: 'Win Rate (%)',
-            type: 'line',
-            data: compData.map(d => d.winRate),
-            borderColor: defaults.colors.yellow,
-            backgroundColor: defaults.colors.yellow,
-            yAxisID: 'yWinRate',
-            tension: 0.2,
-            borderWidth: 2,
-            pointRadius: 3
-          }
-        ]
+        datasets: datasets
       },
       options: options
     });

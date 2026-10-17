@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
   
   // KPI Cards Generator
-  function createKPICards(stats, containerIdOrUpdateIds) {
+  function createKPICards(stats, containerIdOrUpdateIds, options = {}) {
     const data = [
       { label: 'Чистая Прибыль (Net P&L)', val: formatUsd(stats.netPnl), sub: stats.totalTrades + ' сделок' },
       { label: 'Винрейт (Win Rate)', val: { text: formatPct(stats.winRate), colorClass: stats.winRate > 50 ? 'green' : 'red' }, sub: 'Win/Loss/BE: ' + stats.wins + '/' + stats.losses + '/' + stats.breakevens },
@@ -39,6 +39,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       { label: 'W/L Соотношение', val: { text: stats.avgWinLossRatio.toFixed(2), colorClass: stats.avgWinLossRatio >= 2 ? 'green' : '' }, sub: 'Целевое: > 2.0' },
       { label: 'Макс. Просадка (Max DD)', val: { text: formatUsd(-stats.maxDrawdown).text, colorClass: 'red' }, sub: formatPct(stats.maxDrawdownPct) }
     ];
+
+    if (options.btcReturn != null && options.traderReturn != null) {
+      const alpha = options.traderReturn - options.btcReturn;
+      const alphaSign = alpha > 0 ? '+' : '';
+      const btcSign = options.btcReturn > 0 ? '+' : '';
+      data.push({
+        label: 'Бенчмарк BTC',
+        val: { text: btcSign + options.btcReturn.toFixed(2) + '%', colorClass: options.btcReturn >= 0 ? 'yellow' : 'red' },
+        sub: 'Трейдер: ' + (options.traderReturn >= 0 ? '+' : '') + options.traderReturn.toFixed(2) + '%'
+      });
+      data.push({
+        label: 'Альфа vs BTC (Alpha)',
+        val: { text: alphaSign + alpha.toFixed(2) + '%', colorClass: alpha >= 0 ? 'green' : 'red' },
+        sub: alpha >= 0 ? '🚀 Опережение рынка' : '⚠️ Отставание от рынка'
+      });
+    }
     
     if (typeof containerIdOrUpdateIds === 'string') {
       const container = document.getElementById(containerIdOrUpdateIds);
@@ -66,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['kpi-wl-ratio', 'kpi-wl-ratio-sub'],
         ['kpi-drawdown', 'kpi-drawdown-sub']
       ];
-      data.forEach((item, i) => {
+      data.slice(0, 8).forEach((item, i) => {
         const valEl = document.getElementById(ids[i][0]);
         const subEl = document.getElementById(ids[i][1]);
         if (valEl && subEl) {
@@ -138,6 +154,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bePct = (stats.breakevens / stats.totalTrades) * 100;
     if (bePct > 20) {
       obs.push({ type: 'info', title: 'Много сделок в безубыток', text: `${bePct.toFixed(1)}% сделок закрыты в БУ. Возможно, вы слишком рано переводите стоп.` });
+    }
+
+    // Benchmark Observation
+    if (stats.benchmark) {
+      const { btcReturn, traderReturn, alpha } = stats.benchmark;
+      if (alpha >= 0) {
+        obs.push({ 
+          type: 'positive', 
+          title: 'Опережение Биткоина (Alpha)', 
+          text: `Ваша доходность (+${traderReturn.toFixed(2)}%) опередила движение BTC (+${btcReturn.toFixed(2)}%) на +${alpha.toFixed(2)}%. Отличный результат работы против рынка!` 
+        });
+      } else {
+        obs.push({ 
+          type: 'info', 
+          title: 'Бенчмарк BTC', 
+          text: `BTC вырос на +${btcReturn.toFixed(2)}%, а доходность депозита составила +${traderReturn.toFixed(2)}% (Alpha: ${alpha.toFixed(2)}%). Трейдинг дал стабильный плюс с контролируемым риском без удержания спота.` 
+        });
+      }
     }
     
     return obs;
@@ -232,8 +266,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderMonthly(yearMonth) {
     const monthTrades = TradingStats.filterByMonth(globalTrades, yearMonth);
     const stats = TradingStats.calcStats(monthTrades);
+    const startBal = globalBalances[yearMonth] ? globalBalances[yearMonth].starting_balance : 0;
+    const btcReturn = TradingStats.getBenchmarkForMonth ? TradingStats.getBenchmarkForMonth(globalBalances, yearMonth) : null;
+    let traderReturn = null;
+    if (startBal > 0) {
+      traderReturn = (stats.netPnl / startBal) * 100;
+    }
+
+    if (btcReturn != null && traderReturn != null) {
+      stats.benchmark = {
+        btcReturn,
+        traderReturn,
+        alpha: traderReturn - btcReturn
+      };
+    }
     
-    createKPICards(stats, 'monthly-kpis');
+    createKPICards(stats, 'monthly-kpis', { btcReturn, traderReturn });
     
     const equity = TradingStats.getEquityCurve(monthTrades);
     TradingCharts.renderEquityCurve('chart-monthly-equity', equity);
@@ -268,13 +316,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const compData = months.map(m => {
       const t = TradingStats.filterByMonth(globalTrades, m);
       const s = TradingStats.calcStats(t);
+      const startBal = globalBalances[m] ? globalBalances[m].starting_balance : 0;
+      const traderReturn = startBal > 0 ? (s.netPnl / startBal) * 100 : null;
+      const btcReturn = TradingStats.getBenchmarkForMonth ? TradingStats.getBenchmarkForMonth(globalBalances, m) : null;
+      const alpha = (traderReturn != null && btcReturn != null) ? (traderReturn - btcReturn) : null;
+
       return { 
         month: m, 
         label: TradingStats.getMonthLabel(m), 
         netPnl: s.netPnl,
         winRate: s.winRate,
         profitFactor: s.profitFactor,
-        trades: s.totalTrades
+        trades: s.totalTrades,
+        traderReturn,
+        btcReturn,
+        alpha
       };
     });
     
@@ -296,6 +352,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     tbody.innerHTML = '';
     const metricsToCompare = [
       { key: 'netPnl', label: 'Net P&L', fmt: (v) => formatUsd(v).text, colorFmt: (v) => v > 0 ? 'green' : (v < 0 ? 'red' : '') },
+      { key: 'traderReturn', label: 'Доходность Трейдера (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v > 0 ? 'green' : (v < 0 ? 'red' : '')) : '' },
+      { key: 'btcReturn', label: 'Бенчмарк BTC (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'yellow' : 'red') : '' },
+      { key: 'alpha', label: 'Alpha (vs BTC)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'green' : 'red') : '' },
       { key: 'winRate', label: 'Win Rate', fmt: (v) => formatPct(v), colorFmt: (v) => v > 50 ? 'green' : 'red' },
       { key: 'profitFactor', label: 'Profit Factor', fmt: (v) => v.toFixed(2), colorFmt: (v) => v > 1.5 ? 'green' : (v < 1 ? 'red' : '') },
       { key: 'trades', label: 'Сделок', fmt: (v) => v, colorFmt: () => '' }
@@ -426,25 +485,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderQuarterlyReport(quarter) {
     const qTrades = TradingStats.filterByQuarter(globalTrades, quarter);
     const stats = TradingStats.calcStats(qTrades);
-    createKPICards(stats, 'quarterly-kpis');
+
+    // Calculate quarterly compound return for trader and BTC
+    const months = Array.from(new Set(qTrades.map(t => t.date.substring(0, 7)))).sort();
+    let qTraderReturn = null;
+    const monthlyTraderPct = [];
+    months.forEach(m => {
+      const mTrades = TradingStats.filterByMonth(qTrades, m);
+      const s = TradingStats.calcStats(mTrades);
+      const bal = globalBalances[m] ? globalBalances[m].starting_balance : 0;
+      if (bal > 0) {
+        monthlyTraderPct.push((s.netPnl / bal) * 100);
+      }
+    });
+    if (monthlyTraderPct.length > 0) {
+      qTraderReturn = TradingStats.getCompoundReturn(monthlyTraderPct);
+    }
+    const qBtcReturn = TradingStats.getQuarterBenchmark ? TradingStats.getQuarterBenchmark(globalBalances, quarter) : null;
+
+    createKPICards(stats, 'quarterly-kpis', { btcReturn: qBtcReturn, traderReturn: qTraderReturn });
     
     const equity = TradingStats.getEquityCurve(qTrades);
     TradingCharts.renderEquityCurve('chart-quarterly-equity', equity);
     
     // Monthly breakdown inside quarter
-    const months = Array.from(new Set(qTrades.map(t => t.date.substring(0, 7)))).sort();
     const tbody = document.getElementById('quarterly-months-tbody');
     tbody.innerHTML = '';
     
     months.forEach(m => {
       const mTrades = TradingStats.filterByMonth(qTrades, m);
       const s = TradingStats.calcStats(mTrades);
+      const bal = globalBalances[m] ? globalBalances[m].starting_balance : 0;
+      const tReturn = bal > 0 ? (s.netPnl / bal) * 100 : null;
+      const bReturn = TradingStats.getBenchmarkForMonth ? TradingStats.getBenchmarkForMonth(globalBalances, m) : null;
+      const alpha = (tReturn != null && bReturn != null) ? (tReturn - bReturn) : null;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${TradingStats.getMonthLabel(m)}</td>
+        <td><strong>${TradingStats.getMonthLabel(m)}</strong></td>
         <td>${s.totalTrades}</td>
         <td class="${s.winRate > 50 ? 'green' : 'red'}">${formatPct(s.winRate)}</td>
         <td class="${s.netPnl > 0 ? 'green' : 'red'}">${formatUsd(s.netPnl).text}</td>
+        <td class="${tReturn != null ? (tReturn >= 0 ? 'green' : 'red') : ''}">${tReturn != null ? (tReturn >= 0 ? '+' : '') + formatPct(tReturn) : '—'}</td>
+        <td class="${bReturn != null ? (bReturn >= 0 ? 'yellow' : 'red') : ''}">${bReturn != null ? (bReturn >= 0 ? '+' : '') + formatPct(bReturn) : '—'}</td>
+        <td class="${alpha != null ? (alpha >= 0 ? 'green' : 'red') : ''}">${alpha != null ? (alpha >= 0 ? '+' : '') + formatPct(alpha) : '—'}</td>
         <td>${s.profitFactor.toFixed(2)}</td>
       `;
       tbody.appendChild(tr);
@@ -454,16 +538,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderYearlyReport(year) {
     const yTrades = TradingStats.filterByYear(globalTrades, year);
     const stats = TradingStats.calcStats(yTrades);
-    createKPICards(stats, 'yearly-kpis');
-    
-    const equity = TradingStats.getEquityCurve(yTrades);
-    TradingCharts.renderEquityCurve('chart-yearly-equity', equity);
-    
-    // Quarterly breakdown inside year
+
+    // Calculate yearly compound return for trader and BTC
     const quarters = Array.from(new Set(yTrades.map(t => {
       const q = Math.ceil(parseInt(t.date.split('-')[1], 10) / 3);
       return `${year}-Q${q}`;
     }))).sort();
+
+    const monthlyTraderPct = [];
+    const months = Array.from(new Set(yTrades.map(t => t.date.substring(0, 7)))).sort();
+    months.forEach(m => {
+      const mTrades = TradingStats.filterByMonth(yTrades, m);
+      const s = TradingStats.calcStats(mTrades);
+      const bal = globalBalances[m] ? globalBalances[m].starting_balance : 0;
+      if (bal > 0) {
+        monthlyTraderPct.push((s.netPnl / bal) * 100);
+      }
+    });
+    const yTraderReturn = monthlyTraderPct.length > 0 ? TradingStats.getCompoundReturn(monthlyTraderPct) : null;
+    const yBtcReturn = TradingStats.getYearBenchmark ? TradingStats.getYearBenchmark(globalBalances, year) : null;
+
+    createKPICards(stats, 'yearly-kpis', { btcReturn: yBtcReturn, traderReturn: yTraderReturn });
+    
+    const equity = TradingStats.getEquityCurve(yTrades);
+    TradingCharts.renderEquityCurve('chart-yearly-equity', equity);
     
     const tbody = document.getElementById('yearly-quarters-tbody');
     tbody.innerHTML = '';
@@ -471,12 +569,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     quarters.forEach(q => {
       const qTrades = TradingStats.filterByQuarter(yTrades, q);
       const s = TradingStats.calcStats(qTrades);
+      const qMonths = Array.from(new Set(qTrades.map(t => t.date.substring(0, 7)))).sort();
+      const qTPct = [];
+      qMonths.forEach(qm => {
+        const qmTrades = TradingStats.filterByMonth(qTrades, qm);
+        const qmS = TradingStats.calcStats(qmTrades);
+        const bal = globalBalances[qm] ? globalBalances[qm].starting_balance : 0;
+        if (bal > 0) qTPct.push((qmS.netPnl / bal) * 100);
+      });
+      const tReturn = qTPct.length > 0 ? TradingStats.getCompoundReturn(qTPct) : null;
+      const bReturn = TradingStats.getQuarterBenchmark ? TradingStats.getQuarterBenchmark(globalBalances, q) : null;
+      const alpha = (tReturn != null && bReturn != null) ? (tReturn - bReturn) : null;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${TradingStats.getQuarterLabel(q)}</td>
+        <td><strong>${TradingStats.getQuarterLabel(q)}</strong></td>
         <td>${s.totalTrades}</td>
         <td class="${s.winRate > 50 ? 'green' : 'red'}">${formatPct(s.winRate)}</td>
         <td class="${s.netPnl > 0 ? 'green' : 'red'}">${formatUsd(s.netPnl).text}</td>
+        <td class="${tReturn != null ? (tReturn >= 0 ? 'green' : 'red') : ''}">${tReturn != null ? (tReturn >= 0 ? '+' : '') + formatPct(tReturn) : '—'}</td>
+        <td class="${bReturn != null ? (bReturn >= 0 ? 'yellow' : 'red') : ''}">${bReturn != null ? (bReturn >= 0 ? '+' : '') + formatPct(bReturn) : '—'}</td>
+        <td class="${alpha != null ? (alpha >= 0 ? 'green' : 'red') : ''}">${alpha != null ? (alpha >= 0 ? '+' : '') + formatPct(alpha) : '—'}</td>
         <td>${s.profitFactor.toFixed(2)}</td>
       `;
       tbody.appendChild(tr);

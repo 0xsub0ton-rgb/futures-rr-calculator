@@ -5,8 +5,15 @@
     "created": "2026-10-07"
   },
   "monthly_balances": {
-    "2026-08": { "starting_balance": 524 },
-    "2026-09": { "starting_balance": 540 }
+    "2026-08": { "starting_balance": 524, "btc_change_pct": 24.95 },
+    "2026-09": { "starting_balance": 540, "btc_change_pct": 6.34 }
+  },
+  "market_benchmark": {
+    "asset": "BTC",
+    "months": {
+      "2026-08": { "change_pct": 24.95 },
+      "2026-09": { "change_pct": 6.34 }
+    }
   },
   "trades": [
     {

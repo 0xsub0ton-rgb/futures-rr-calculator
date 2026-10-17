@@ -329,5 +329,55 @@ window.TradingStats = {
     const parts = yearQuarter.split('-Q');
     if (parts.length !== 2) return yearQuarter;
     return `Q${parts[1]} ${parts[0]}`;
+  },
+
+  // Market Benchmark Helpers
+  getBenchmarkForMonth(balancesOrBenchmark, yearMonth) {
+    if (!balancesOrBenchmark || !yearMonth) return null;
+    if (balancesOrBenchmark.months && balancesOrBenchmark.months[yearMonth]) {
+      return balancesOrBenchmark.months[yearMonth].change_pct;
+    }
+    if (balancesOrBenchmark[yearMonth] && balancesOrBenchmark[yearMonth].btc_change_pct != null) {
+      return balancesOrBenchmark[yearMonth].btc_change_pct;
+    }
+    return null;
+  },
+
+  getCompoundReturn(pctArray) {
+    if (!pctArray || pctArray.length === 0) return 0;
+    const factor = pctArray.reduce((acc, val) => acc * (1 + (val / 100)), 1);
+    return (factor - 1) * 100;
+  },
+
+  getQuarterBenchmark(balancesOrBenchmark, yearQuarter) {
+    if (!balancesOrBenchmark || !yearQuarter) return null;
+    const [year, q] = yearQuarter.split('-Q');
+    const qNum = parseInt(q, 10);
+    const startMonth = (qNum - 1) * 3 + 1;
+    const quarterMonths = [
+      `${year}-${String(startMonth).padStart(2, '0')}`,
+      `${year}-${String(startMonth + 1).padStart(2, '0')}`,
+      `${year}-${String(startMonth + 2).padStart(2, '0')}`
+    ];
+    const btcReturns = [];
+    quarterMonths.forEach(m => {
+      const val = this.getBenchmarkForMonth(balancesOrBenchmark, m);
+      if (val != null) btcReturns.push(val);
+    });
+    if (btcReturns.length === 0) return null;
+    return this.getCompoundReturn(btcReturns);
+  },
+
+  getYearBenchmark(balancesOrBenchmark, year) {
+    if (!balancesOrBenchmark || !year) return null;
+    const btcReturns = [];
+    for (let m = 1; m <= 12; m++) {
+      const ym = `${year}-${String(m).padStart(2, '0')}`;
+      const val = this.getBenchmarkForMonth(balancesOrBenchmark, ym);
+      if (val != null) btcReturns.push(val);
+    }
+    if (btcReturns.length === 0) return null;
+    return this.getCompoundReturn(btcReturns);
   }
 };
+
