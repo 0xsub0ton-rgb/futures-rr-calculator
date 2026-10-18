@@ -128,6 +128,15 @@ window.TradingStats = {
     
     const maxDrawdownPct = peakCumPnl > 0 ? (maxDrawdown / peakCumPnl) * 100 : 0;
     const returnOnRisk = totalRiskDeployed > 0 ? netPnl / totalRiskDeployed : 0;
+    
+    // Average Risk % & Risk Breakdown
+    const tradesWithRisk = trades.filter(t => t.risk_pct != null);
+    const avgRiskPct = tradesWithRisk.length > 0 ? totalRiskDeployed / tradesWithRisk.length : 0;
+    const riskCounts = {};
+    trades.forEach(t => {
+      const r = t.risk_pct != null ? t.risk_pct : '—';
+      riskCounts[r] = (riskCounts[r] || 0) + 1;
+    });
 
     // Advanced Risk-Adjusted Ratios (Sharpe, Sortino, Adjusted Sortino)
     const pnls = trades.map(t => t.pnl);
@@ -167,6 +176,7 @@ window.TradingStats = {
       avgWinLossRatio, avgRR, expectancyR, expectancyUsd,
       maxWinStreak, maxLossStreak, bestTrade, worstTrade,
       maxDrawdown, maxDrawdownPct, totalRiskDeployed, returnOnRisk,
+      avgRiskPct, riskCounts,
       stdDev, downsideDev,
       sharpeTrade, sharpeRatio,
       sortinoTrade, sortinoRatio,

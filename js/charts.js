@@ -398,7 +398,7 @@ window.TradingCharts = {
     this._instances[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: riskData.map(d => d.riskPct),
+        labels: riskData.map(d => typeof d.riskPct === 'number' ? `${d.riskPct}%` : d.riskPct),
         datasets: [
           {
             label: 'Net P&L',

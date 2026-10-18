@@ -410,6 +410,29 @@
           </div>
         </section>
 
+        <section class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-title">Средний Риск на сделку</span>
+            <span class="metric-value" id="kpi-avg-risk">0.47%</span>
+            <span class="metric-sub" id="kpi-avg-risk-sub">Базовый риск: 0.5%</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Сделок с риском 0.5%</span>
+            <span class="metric-value green" id="kpi-risk-05">19</span>
+            <span class="metric-sub" id="kpi-risk-05-sub">67.9% от всех сделок</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Сделок с риском 0.25%</span>
+            <span class="metric-value" id="kpi-risk-025">7</span>
+            <span class="metric-sub" id="kpi-risk-025-sub">25.0% от всех сделок</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Сделок с риском 1.0%</span>
+            <span class="metric-value yellow" id="kpi-risk-10">2</span>
+            <span class="metric-sub" id="kpi-risk-10-sub">7.1% от всех сделок</span>
+          </div>
+        </section>
+
         <div class="grid-2col">
           <div class="section-card">
             <h3>КРИВАЯ ДОХОДНОСТИ</h3>
@@ -432,9 +455,15 @@
           </div>
         </div>
 
-        <div class="section-card">
-          <h3>ЕЖЕМЕСЯЧНЫЙ P&L</h3>
-          <div class="chart-container" style="height: 250px;"><canvas id="chart-monthly-pnl"></canvas></div>
+        <div class="grid-2col">
+          <div class="section-card">
+            <h3>ЕЖЕМЕСЯЧНЫЙ P&L</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-monthly-pnl"></canvas></div>
+          </div>
+          <div class="section-card">
+            <h3>РАСПРЕДЕЛЕНИЕ ПО РАЗМЕРУ РИСКА</h3>
+            <div class="chart-container" style="height: 250px;"><canvas id="chart-overview-risk"></canvas></div>
+          </div>
         </div>
       </div>
 
