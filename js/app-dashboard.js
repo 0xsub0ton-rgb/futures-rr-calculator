@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const count10 = riskCounts[1.0] || riskCounts[1] || 0;
     const totalWithRisk = (stats.totalTrades || 1);
 
+    const calmarText = stats.calmarRatio != null ? stats.calmarRatio.toFixed(2) : '0.00';
+    const rorText = stats.returnOnRisk != null ? stats.returnOnRisk.toFixed(2) + 'x' : '0.00x';
+
     const data = [
       { label: 'Чистая Прибыль (Net P&L)', val: formatUsd(stats.netPnl), sub: stats.totalTrades + ' сделок' },
       { label: 'Винрейт (Win Rate)', val: { text: formatPct(stats.winRate), colorClass: stats.winRate > 50 ? 'green' : 'red' }, sub: 'Win/Loss/BE: ' + stats.wins + '/' + stats.losses + '/' + stats.breakevens },
@@ -55,10 +58,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       { label: 'Коэф. Сортино (Sortino)', val: { text: sortinoText, colorClass: stats.sortinoRatio >= 2 ? 'green' : (stats.sortinoRatio > 0 ? 'yellow' : 'red') }, sub: `Downside Dev: ${downsideDevText}` },
       { label: 'Скорр. Сортино (Adj. Sortino / UPR)', val: { text: adjSortinoText, colorClass: stats.adjustedSortino >= 1.5 ? 'green' : (stats.adjustedSortino > 0 ? 'yellow' : 'red') }, sub: 'Upside / Downside' },
       { label: 'Волатильность (Std Dev)', val: { text: stdDevText, colorClass: '' }, sub: 'Std Dev на сделку' },
+      { label: 'Коэф. Кальмара (Calmar)', val: { text: calmarText, colorClass: stats.calmarRatio >= 2 ? 'green' : (stats.calmarRatio > 0 ? 'yellow' : 'red') }, sub: 'Доходность / Макс DD' },
+      { label: 'Return on Risk (RoR)', val: { text: rorText, colorClass: stats.returnOnRisk >= 0.4 ? 'green' : '' }, sub: 'Чистый P&L / Сумма риска' },
       { label: 'Средний Риск на сделку', val: { text: avgRiskText, colorClass: 'green' }, sub: 'Базовый риск: 0.5%' },
-      { label: 'Сделок с риском 0.5%', val: { text: String(count05), colorClass: 'green' }, sub: ((count05 / totalWithRisk) * 100).toFixed(1) + '% от всех сделок' },
-      { label: 'Сделок с риском 0.25%', val: { text: String(count025), colorClass: '' }, sub: ((count025 / totalWithRisk) * 100).toFixed(1) + '% от всех сделок' },
-      { label: 'Сделок с риском 1.0%', val: { text: String(count10), colorClass: count10 > 0 ? 'yellow' : '' }, sub: ((count10 / totalWithRisk) * 100).toFixed(1) + '% от всех сделок' }
+      { label: 'Сделок 0.5% / 0.25% / 1%', val: { text: `${count05} / ${count025} / ${count10}`, colorClass: 'green' }, sub: `${((count05 / totalWithRisk) * 100).toFixed(0)}% / ${((count025 / totalWithRisk) * 100).toFixed(0)}% / ${((count10 / totalWithRisk) * 100).toFixed(0)}%` }
     ];
 
     if (options.btcReturn != null && options.traderReturn != null) {
@@ -106,10 +109,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['kpi-sortino', 'kpi-sortino-sub'],
         ['kpi-adj-sortino', 'kpi-adj-sortino-sub'],
         ['kpi-std-dev', 'kpi-std-dev-sub'],
+        ['kpi-calmar', 'kpi-calmar-sub'],
+        ['kpi-ror', 'kpi-ror-sub'],
         ['kpi-avg-risk', 'kpi-avg-risk-sub'],
-        ['kpi-risk-05', 'kpi-risk-05-sub'],
-        ['kpi-risk-025', 'kpi-risk-025-sub'],
-        ['kpi-risk-10', 'kpi-risk-10-sub']
+        ['kpi-risk-dist', 'kpi-risk-dist-sub']
       ];
       ids.forEach((idPair, i) => {
         const item = data[i];
@@ -371,6 +374,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         sharpe: s.sharpeRatio,
         sortino: s.sortinoRatio,
         adjSortino: s.adjustedSortino,
+        calmar: s.calmarRatio,
+        ror: s.returnOnRisk,
         avgRisk: s.avgRiskPct
       };
     });
@@ -396,6 +401,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key: 'traderReturn', label: 'Доходность Трейдера (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v > 0 ? 'green' : (v < 0 ? 'red' : '')) : '' },
       { key: 'btcReturn', label: 'Бенчмарк BTC (%)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'yellow' : 'red') : '' },
       { key: 'alpha', label: 'Alpha (vs BTC)', fmt: (v) => v != null ? (v >= 0 ? '+' : '') + formatPct(v) : '—', colorFmt: (v) => v != null ? (v >= 0 ? 'green' : 'red') : '' },
+      { key: 'calmar', label: 'Коэф. Кальмара (Calmar)', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 2 ? 'green' : (v > 0 ? 'yellow' : 'red') },
+      { key: 'ror', label: 'Return on Risk (RoR)', fmt: (v) => v != null ? v.toFixed(2) + 'x' : '—', colorFmt: (v) => v >= 0.4 ? 'green' : '' },
       { key: 'avgRisk', label: 'Средний риск на сделку', fmt: (v) => v != null ? v.toFixed(2) + '%' : '—', colorFmt: () => 'green' },
       { key: 'sharpe', label: 'Коэффициент Шарпа', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 1 ? 'green' : (v > 0 ? 'yellow' : 'red') },
       { key: 'sortino', label: 'Коэффициент Сортино', fmt: (v) => v != null ? v.toFixed(2) : '—', colorFmt: (v) => v >= 2 ? 'green' : (v > 0 ? 'yellow' : 'red') },

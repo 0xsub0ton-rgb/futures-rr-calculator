@@ -127,11 +127,13 @@ window.TradingStats = {
     const expectancyUsd = netPnl / totalTrades;
     
     const maxDrawdownPct = peakCumPnl > 0 ? (maxDrawdown / peakCumPnl) * 100 : 0;
-    const returnOnRisk = totalRiskDeployed > 0 ? netPnl / totalRiskDeployed : 0;
     
     // Average Risk % & Risk Breakdown
     const tradesWithRisk = trades.filter(t => t.risk_pct != null);
     const avgRiskPct = tradesWithRisk.length > 0 ? totalRiskDeployed / tradesWithRisk.length : 0;
+    const returnOnRisk = totalRiskDeployed > 0 ? (netPnl / (totalRiskDeployed * (trades[0]?.startingBalance || 5.4))) : 0; // ratio
+    const rorMultiplier = totalRiskDeployed > 0 ? (netPnl / (totalRiskDeployed * 5.4)) : 0;
+    const calmarRatio = maxDrawdown > 0 ? (netPnl / maxDrawdown) : (netPnl > 0 ? 99 : 0);
     const riskCounts = {};
     trades.forEach(t => {
       const r = t.risk_pct != null ? t.risk_pct : '—';
@@ -176,6 +178,7 @@ window.TradingStats = {
       avgWinLossRatio, avgRR, expectancyR, expectancyUsd,
       maxWinStreak, maxLossStreak, bestTrade, worstTrade,
       maxDrawdown, maxDrawdownPct, totalRiskDeployed, returnOnRisk,
+      calmarRatio, rorMultiplier,
       avgRiskPct, riskCounts,
       stdDev, downsideDev,
       sharpeTrade, sharpeRatio,
