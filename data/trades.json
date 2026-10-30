@@ -5,14 +5,31 @@
     "created": "2026-10-07"
   },
   "monthly_balances": {
-    "2026-08": { "starting_balance": 524, "btc_change_pct": 24.95 },
-    "2026-09": { "starting_balance": 540, "btc_change_pct": 6.34 }
+    "2026-08": {
+      "starting_balance": 524,
+      "btc_change_pct": 24.95
+    },
+    "2026-09": {
+      "starting_balance": 540,
+      "btc_change_pct": 6.34
+    },
+    "2026-10": {
+      "starting_balance": 535.54,
+      "btc_change_pct": 10.9
+    }
   },
   "market_benchmark": {
     "asset": "BTC",
     "months": {
-      "2026-08": { "change_pct": 24.95 },
-      "2026-09": { "change_pct": 6.34 }
+      "2026-08": {
+        "change_pct": 24.95
+      },
+      "2026-09": {
+        "change_pct": 6.34
+      },
+      "2026-10": {
+        "change_pct": 10.9
+      }
     }
   },
   "trades": [
@@ -75,7 +92,7 @@
       "direction": "long",
       "risk_pct": 0.5,
       "result": "loss",
-      "pnl": -2.50,
+      "pnl": -2.5,
       "rr": null,
       "setup": null,
       "timeframe": null,
@@ -131,7 +148,9 @@
       "rr": null,
       "setup": null,
       "timeframe": null,
-      "tags": ["OPEN"]
+      "tags": [
+        "OPEN"
+      ]
     },
     {
       "id": "2026-08-010",
@@ -244,7 +263,7 @@
       "direction": "short",
       "risk_pct": 0.5,
       "result": "loss",
-      "pnl": -2.90,
+      "pnl": -2.9,
       "rr": null,
       "setup": null,
       "timeframe": null,
@@ -296,7 +315,7 @@
       "direction": "short",
       "risk_pct": 0.5,
       "result": "loss",
-      "pnl": -2.60,
+      "pnl": -2.6,
       "rr": null,
       "setup": null,
       "timeframe": null,
@@ -322,7 +341,7 @@
       "direction": "long",
       "risk_pct": 0.25,
       "result": "loss",
-      "pnl": -1.30,
+      "pnl": -1.3,
       "rr": null,
       "setup": null,
       "timeframe": null,
@@ -361,7 +380,7 @@
       "direction": "long",
       "risk_pct": 1.0,
       "result": "be",
-      "pnl": 0.50,
+      "pnl": 0.5,
       "rr": null,
       "setup": "Golden Flip",
       "timeframe": "1D",
@@ -379,6 +398,387 @@
       "setup": "Golden Flip",
       "timeframe": "4H",
       "tags": []
+    },
+    {
+      "date": "2026-10-06",
+      "ticker": "SUI",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -2.75,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-001"
+    },
+    {
+      "date": "2026-10-07",
+      "ticker": "CRV",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "win",
+      "pnl": 10.25,
+      "rr": 2.05,
+      "setup": "Golden Flip",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-002"
+    },
+    {
+      "date": "2026-10-07",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -2.89,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-003"
+    },
+    {
+      "date": "2026-10-08",
+      "ticker": "PENDLE",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "loss",
+      "pnl": -4.95,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-004"
+    },
+    {
+      "date": "2026-10-10",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 8.39,
+      "rr": 3.36,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-005"
+    },
+    {
+      "date": "2026-10-11",
+      "ticker": "AVAX",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 7.85,
+      "rr": 3.14,
+      "setup": "Sweet Spot",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-006"
+    },
+    {
+      "date": "2026-10-11",
+      "ticker": "HYPE",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 5.87,
+      "rr": 2.35,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-007"
+    },
+    {
+      "date": "2026-10-12",
+      "ticker": "PYTH",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 10.13,
+      "rr": 4.05,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-008"
+    },
+    {
+      "date": "2026-10-14",
+      "ticker": "PYTH",
+      "direction": "long",
+      "risk_pct": 0.25,
+      "result": "win",
+      "pnl": 2.5,
+      "rr": 2.0,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-009"
+    },
+    {
+      "date": "2026-10-14",
+      "ticker": "PUMP",
+      "direction": "long",
+      "risk_pct": 0.25,
+      "result": "loss",
+      "pnl": -1.38,
+      "rr": null,
+      "setup": "ЛУДКА",
+      "timeframe": "1H",
+      "tags": [
+        "лудка"
+      ],
+      "id": "2026-10-010"
+    },
+    {
+      "date": "2026-10-15",
+      "ticker": "CRV",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 9.24,
+      "rr": 3.7,
+      "setup": "LIQ-Hunt",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-011"
+    },
+    {
+      "date": "2026-10-16",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -0.57,
+      "rr": null,
+      "setup": "ЛУДКА",
+      "timeframe": "1H",
+      "tags": [
+        "лудка"
+      ],
+      "id": "2026-10-012"
+    },
+    {
+      "date": "2026-10-16",
+      "ticker": "CRV",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -2.1,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-013"
+    },
+    {
+      "date": "2026-10-17",
+      "ticker": "UNI",
+      "direction": "long",
+      "risk_pct": 0.25,
+      "result": "be",
+      "pnl": -0.04,
+      "rr": null,
+      "setup": "LIQ-Hunt",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-014"
+    },
+    {
+      "date": "2026-10-19",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.25,
+      "result": "win",
+      "pnl": 4.04,
+      "rr": 3.23,
+      "setup": "Golden Flip",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-015"
+    },
+    {
+      "date": "2026-10-22",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "loss",
+      "pnl": -5.02,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "1D",
+      "tags": [],
+      "id": "2026-10-016"
+    },
+    {
+      "date": "2026-10-23",
+      "ticker": "SUI",
+      "direction": "short",
+      "risk_pct": 0.5,
+      "result": "be",
+      "pnl": -0.05,
+      "rr": null,
+      "setup": null,
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-017"
+    },
+    {
+      "date": "2026-10-24",
+      "ticker": "AERO",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "loss",
+      "pnl": -5.08,
+      "rr": null,
+      "setup": "LIQ-Hunt",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-018"
+    },
+    {
+      "date": "2026-10-26",
+      "ticker": "CRV",
+      "direction": "long",
+      "risk_pct": 0.25,
+      "result": "win",
+      "pnl": 3.59,
+      "rr": 2.87,
+      "setup": null,
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-019"
+    },
+    {
+      "date": "2026-10-27",
+      "ticker": "HYPE",
+      "direction": "short",
+      "risk_pct": 0.5,
+      "result": "win",
+      "pnl": 3.75,
+      "rr": 1.5,
+      "setup": "Sweet Spot",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-020"
+    },
+    {
+      "date": "2026-10-27",
+      "ticker": "LTC",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -2.65,
+      "rr": null,
+      "setup": "Sweet Spot",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-021"
+    },
+    {
+      "date": "2026-10-27",
+      "ticker": "BTC",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "be",
+      "pnl": -0.14,
+      "rr": null,
+      "setup": "LIQ-Hunt",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-022"
+    },
+    {
+      "date": "2026-10-27",
+      "ticker": "AAVE",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "loss",
+      "pnl": -5.31,
+      "rr": null,
+      "setup": "LIQ-Hunt",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-023"
+    },
+    {
+      "date": "2026-10-29",
+      "ticker": "ZEC",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -0.54,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-024"
+    },
+    {
+      "date": "2026-10-29",
+      "ticker": "PYTH",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "be",
+      "pnl": -1.0,
+      "rr": null,
+      "setup": "Sweet Spot",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-025"
+    },
+    {
+      "date": "2026-10-30",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -8.74,
+      "rr": null,
+      "setup": "Golden Flip",
+      "timeframe": "4H",
+      "tags": [],
+      "id": "2026-10-026"
+    },
+    {
+      "date": "2026-10-30",
+      "ticker": "BTC",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "be",
+      "pnl": 0.5,
+      "rr": null,
+      "setup": "LIQ-Hunt",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-027"
+    },
+    {
+      "date": "2026-10-30",
+      "ticker": "ZEC",
+      "direction": "long",
+      "risk_pct": 1.0,
+      "result": "be",
+      "pnl": -0.44,
+      "rr": null,
+      "setup": null,
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-028"
+    },
+    {
+      "date": "2026-10-30",
+      "ticker": "LIT",
+      "direction": "long",
+      "risk_pct": 0.5,
+      "result": "loss",
+      "pnl": -2.1,
+      "rr": null,
+      "setup": "Sweet Spot",
+      "timeframe": "1H",
+      "tags": [],
+      "id": "2026-10-029"
     }
   ]
 }
