@@ -15,7 +15,7 @@
     },
     "2026-10": {
       "starting_balance": 535.54,
-      "btc_change_pct": 10.9
+      "btc_change_pct": -7.24
     }
   },
   "market_benchmark": {
@@ -28,7 +28,7 @@
         "change_pct": 6.34
       },
       "2026-10": {
-        "change_pct": 10.9
+        "change_pct": -7.24
       }
     }
   },
